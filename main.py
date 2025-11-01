@@ -139,6 +139,77 @@ def open_browser(delay_seconds: float = 5.0):
         print(f"Lỗi khi mở trình duyệt: {e}")
 
 
+# --- Model Download ---
+MODELS_DIR = BASE_DIR / 'models'
+MODELS_TO_CHECK = {
+    "llama-2-7b-chat.Q4_K_M.gguf": "https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_K_M.gguf?download=true",
+    "vitral-7b-chat.Q4_K_M.gguf": "https://huggingface.co/janhq/Vistral-7b-Chat-GGUF/resolve/main/vitral-7b-chat.Q4_K_M.gguf?download=true"
+}
+
+def download_file_with_curl(url: str, dest_path: Path):
+    """Tải file bằng curl, hiển thị progress bar."""
+    print(f"Đang tải xuống {dest_path.name}...")
+    # curl sẽ tự động hiển thị progress bar khi output là terminal
+    cmd = ['curl', '-L', url, '-o', str(dest_path)]
+    try:
+        # Sử dụng check_call để output của curl được hiển thị trực tiếp
+        subprocess.check_call(cmd)
+        print(f"\nTải xuống hoàn tất: {dest_path}")
+        return True
+    except FileNotFoundError:
+        print("\nLỗi: Lệnh 'curl' không được tìm thấy. Vui lòng cài đặt curl hoặc tải model thủ công.")
+        return False
+    except subprocess.CalledProcessError as e:
+        print(f"\nLỗi khi tải {dest_path.name}. Curl exit code: {e.returncode}")
+        if dest_path.exists():
+            dest_path.unlink() # Xóa file không hoàn chỉnh
+        return False
+    except Exception as e:
+        print(f"\nLỗi không xác định khi chạy curl: {e}")
+        if dest_path.exists():
+            dest_path.unlink()
+        return False
+
+def check_and_download_models():
+    """Kiểm tra các model, hỏi và tải xuống nếu thiếu."""
+    MODELS_DIR.mkdir(exist_ok=True)
+    
+    missing_models = []
+    for model_name, url in MODELS_TO_CHECK.items():
+        if not (MODELS_DIR / model_name).exists():
+            missing_models.append({'name': model_name, 'url': url})
+            
+    if not missing_models:
+        print("Tất cả các model AI đã có sẵn.")
+        return
+
+    print("Một số model AI cần thiết bị thiếu.")
+    for model in missing_models:
+        print(f" - {model['name']}")
+        
+    answer = ''
+    while answer not in ['y', 'n']:
+        answer = input("Bạn có muốn tải xuống các model này không? (y/n): ").lower().strip()
+        if answer not in ['y', 'n']:
+            print("Vui lòng nhập 'y' hoặc 'n'.")
+
+    if answer == 'y':
+        print("Bắt đầu tải xuống model...")
+        all_successful = True
+        for model in missing_models:
+            if not download_file_with_curl(model['url'], MODELS_DIR / model['name']):
+                all_successful = False
+                break # Dừng lại nếu có lỗi
+        
+        if all_successful:
+            print("Tất cả model đã được tải xuống thành công.")
+        else:
+            print("Đã có lỗi xảy ra trong quá trình tải model. Vui lòng thử lại hoặc tải thủ công.")
+            sys.exit(1)
+    else:
+        print("Bỏ qua việc tải model. Một số chức năng của AI có thể không hoạt động.")
+
+
 class ProcessManager:
     """
     Quản lý (khởi chạy, giám sát, khởi động lại, và tắt) các tiến trình con.
@@ -300,6 +371,7 @@ class ProcessManager:
         print_banner()
         check_python_version()
         check_and_install_dependencies()
+        check_and_download_models()
         
         # Đăng ký tín hiệu shutdown (Ctrl+C và lệnh kill)
         signal.signal(signal.SIGINT, self.shutdown)

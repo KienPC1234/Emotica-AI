@@ -31,6 +31,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install build tools and curl (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip

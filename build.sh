@@ -4,7 +4,7 @@
 # Changes:
 # - Removed all --enable-plugin flags as requested.
 # - Tries to build with static libpython first, falls back to non-static if it fails.
-# - Downloads two specified GGUF models into the build directory.
+# - Model download is now handled by the main application.
 # - Manually copies the tts_models directory.
 
 echo "--- Starting Advanced Linux Build (v5) ---"
@@ -15,12 +15,9 @@ LLAMA_EXEC_NAME="llama_server_exec"
 WEB_EXEC_NAME="web_server_exec"
 MANAGER_EXEC_NAME="start_app"
 
-URL_LLAMA2="https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_K_M.gguf?download=true"
-URL_VISTRAL="https://huggingface.co/janhq/Vistral-7b-Chat-GGUF/resolve/main/vitral-7b-chat.Q4_K_M.gguf?download=true"
-
 # --- Build Steps ---
 
-echo "[1/9] Cleaning up previous build directory..."
+echo "[1/8] Cleaning up previous build directory..."
 rm -rf "$FINAL_DIR"
 mkdir -p "$FINAL_DIR"
 
@@ -54,7 +51,7 @@ compile_with_fallback() {
 }
 
 # 2. Compile llama_server.py
-echo "[2/9] Compiling Llama Server..."
+echo "[2/8] Compiling Llama Server..."
 compile_with_fallback "Llama Server" \
     --main=llama_server.py \
     --output-dir="$FINAL_DIR" \
@@ -63,7 +60,7 @@ compile_with_fallback "Llama Server" \
     --assume-yes-for-downloads --remove-output
 
 # 3. Compile web/main.py
-echo "[3/9] Compiling Web Server..."
+echo "[3/8] Compiling Web Server..."
 compile_with_fallback "Web Server" \
     --main=web/main.py \
     --output-dir="$FINAL_DIR" \
@@ -74,7 +71,7 @@ compile_with_fallback "Web Server" \
     --assume-yes-for-downloads --remove-output
 
 # 4. Compile main.py (Process Manager)
-echo "[4/9] Compiling Process Manager..."
+echo "[4/8] Compiling Process Manager..."
 compile_with_fallback "Process Manager" \
     --main=main.py \
     --output-dir="$FINAL_DIR" \
@@ -82,7 +79,7 @@ compile_with_fallback "Process Manager" \
     --assume-yes-for-downloads --remove-output
 
 # 5. Create the modified multiprocess.json
-echo "[5/9] Creating modified process configuration..."
+echo "[5/8] Creating modified process configuration..."
 cat > "$FINAL_DIR/multiprocess.json" << EOL
 {
   "llama_server": [
@@ -94,28 +91,22 @@ cat > "$FINAL_DIR/multiprocess.json" << EOL
 }
 EOL
 
-# 6. Download GGUF Models
-echo "[6/9] Downloading GGUF models (this may take a while)..."
-mkdir -p "$FINAL_DIR/models"
-echo "--> Downloading Llama-2-7B-Chat..."
-curl -L "$URL_LLAMA2" -o "$FINAL_DIR/models/llama-2-7b-chat.Q4_K_M.gguf" || { echo "Failed to download Llama-2 model!"; exit 1; }
-echo "--> Downloading Vistral-7B-Chat..."
-curl -L "$URL_VISTRAL" -o "$FINAL_DIR/models/vitral-7b-chat.Q4_K_M.gguf" || { echo "Failed to download Vistral model!"; exit 1; }
-
-# 7. Copy necessary config files
-echo "[7/9] Copying configuration files..."
+# 6. Copy necessary config files
+echo "[6/8] Copying configuration files..."
 cp ports.toml "$FINAL_DIR/"
 if [ -f "models/cfg.json" ]; then
+    mkdir -p "$FINAL_DIR/models"
     cp models/cfg.json "$FINAL_DIR/models/"
 fi
 
-# 8. Manually copy TTS models directory
-echo "[8/9] Copying TTS models..."
+# 7. Manually copy TTS models directory
+echo "[7/8] Copying TTS models..."
 mkdir -p "$FINAL_DIR/web/ai_module"
 cp -r web/ai_module/tts_models "$FINAL_DIR/web/ai_module/" || { echo "Failed to copy tts_models directory!"; exit 1; }
 
-# 9. Create empty directories that the app expects to exist at runtime
-echo "[9/9] Creating runtime directories..."
+# 8. Create empty directories that the app expects to exist at runtime
+echo "[8/8] Creating runtime directories..."
+mkdir -p "$FINAL_DIR/models"
 mkdir -p "$FINAL_DIR/temp_uploads"
 mkdir -p "$FINAL_DIR/logs"
 mkdir -p "$FINAL_DIR/vectordb/rawcontents"
