@@ -1,4 +1,5 @@
 image_captioners
+build_output
 web/temp_user_image
 embedding_models
 *.gguf

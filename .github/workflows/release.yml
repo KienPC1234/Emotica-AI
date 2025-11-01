@@ -1,0 +1,79 @@
+name: Create Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: release-linux
+            asset_name: release-linux.tar.gz
+            build_command: bash build.sh
+          - os: windows-latest
+            artifact_name: release-windows
+            asset_name: release-windows.zip
+            build_command: cmd /c build.bat
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Nuitka is run as a module, so it must be installed
+          pip install nuitka
+
+      - name: Run Build Script
+        run: ${{ matrix.build_command }}
+
+      - name: Archive Release Artifact (Linux)
+        if: runner.os == 'Linux'
+        run: tar -czvf ${{ matrix.asset_name }} build_output
+
+      - name: Archive Release Artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path build_output -DestinationPath ${{ matrix.asset_name }}
+
+      - name: Upload Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.asset_name }}
+
+  create-release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a release
+    steps:
+      - name: Download all workflow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          # This creates a draft release. Remove 'draft: true' to publish immediately.
+          draft: true
+          # This will use the tag name as the release name, and the commit body as the release body.
+          files: |
+            artifacts/release-linux/release-linux.tar.gz
+            artifacts/release-windows/release-windows.zip
