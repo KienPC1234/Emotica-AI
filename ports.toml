@@ -1,0 +1,5 @@
+[llama_server]
+port = 8002
+
+[webserver]
+port = 8000

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en" class="light"> <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/icon.png" type="image/png">
+    <title>Settings - Emotica AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .dark .bg-gray-50 { @apply bg-gray-900; }
+        .dark .bg-white { @apply bg-gray-800; }
+        .dark .text-gray-900 { @apply text-gray-100; }
+        .dark .text-gray-500 { @apply text-gray-400; }
+        .dark .border-gray-200 { @apply border-gray-700; }
+        .dark .bg-gray-100 { @apply bg-gray-700; }
+        .section { @apply animate-slide-up; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 antialiased min-h-screen py-8">
+    <div class="max-w-6xl mx-auto px-4">
+        <div class="mb-8 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+                    E
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-i18n="title">Settings</h1>
+            </div>
+            <button id="back-btn" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200" data-i18n="back">
+                Back to Chat
+            </button>
+        </div>
+        
+        <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2"></div>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 section">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4" data-i18n="systemTitle">System Status</h2>
+                <div class="space-y-4" id="system-stats-content">
+                    <p class="text-gray-500" data-i18n="loading">Loading...</p>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 section">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4" data-i18n="systemConfig">System Configuration</h2>
+                <div class="space-y-2 text-sm" id="system-config-content">
+                    <p class="text-gray-500" data-i18n="loading">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8 section">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100" data-i18n="llamaTitle">LLM Models Config (models/cfg.json)</h2>
+                <button id="add-model-btn" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200" data-i18n="addModel">
+                    + Add Model
+                </button>
+            </div>
+            <div id="models-list" class="space-y-4">
+                <p class="text-gray-500" data-i18n="loading">Loading...</p>
+            </div>
+            <div class="mt-6 flex space-x-4">
+                <button id="save-config-btn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200" data-i18n="saveConfig">
+                    Save Config
+                </button>
+                 <button id="reload-llama-btn" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-all duration-200" data-i18n="reloadLlama">
+                    Reload Llama Server
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8 section">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4" data-i18n="captionerTitle">Image Captioner Models</h2>
+            <div class="space-y-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" data-i18n="captionerSelect">Select Model:</label>
+                <select id="image-captioner-select" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    <option data-i18n="loading">Loading...</option>
+                </select>
+                <button id="switch-captioner-btn" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200" data-i18n="switchModel">
+                    Switch Model
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 section">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4" data-i18n="emotionTitle">Emotion Analyzer Module (CPU)</h2>
+            <div class="space-y-4">
+                <p class="text-gray-600 dark:text-gray-400" data-i18n="emotionSubtitle">Upload an image to test the detection module.</p>
+                <input type="file" id="emotion-test-upload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                <button id="test-emotion-btn" class="px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all duration-200" data-i18n="emotionTestBtn">
+                    Test Detection
+                </button>
+                <div id="emotion-test-result" class="hidden mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <img id="emotion-test-image" src="" alt="Emotion Test Image" class="w-full max-w-md mx-auto rounded-lg">
+                    <p id="emotion-test-status" class="text-sm text-gray-600 dark:text-gray-400 mt-2 text-center"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- I18N ---
+        const translations = {
+            en: {
+                title: "Settings", back: "Back to Chat", systemTitle: "System Status", systemConfig: "System Configuration",
+                llamaTitle: "LLM Models Config (models/cfg.json)", llamaSubtitle: "(Managed by Llama Server)", addModel: "+ Add Model",
+                saveConfig: "Save Config", reloadLlama: "Reload Llama Server",
+                captionerTitle: "Image Captioner Models", captionerSelect: "Select Model:", switchModel: "Switch Model",
+                emotionTitle: "Emotion Analyzer Module (CPU)", emotionSubtitle: "Upload an image to test the detection module.",
+                emotionTestBtn: "Test Detection", loading: "Loading...", error: "Error", success: "Success",
+                vramFree: "VRAM Free", gpuLoad: "GPU Load", ramFree: "RAM Free", cpuLoad: "CPU Load",
+                gpuModel: "GPU Model", totalVRAM: "Total VRAM", cudaVersion: "CUDA Version",
+                cpuModel: "CPU Model", totalRAM: "Total RAM", os: "Operating System",
+                delete: "Delete", deleteConfirm: "Are you sure you want to delete this model config?",
+                path: "Path:", format: "Format:", maxContext: "Max Context:", temperature: "Temperature:", topP: "Top P:",
+                switch: "Switch", active: "Active", switchSuccess: "Model switched successfully.", switchError: "Failed to switch model.",
+                saveSuccess: "Config saved successfully.", saveError: "Failed to save config.",
+                reloadSuccess: "Llama Server reload requested.", reloadError: "Failed to reload Llama Server.",
+                testProcessing: "Processing...", testError: "Failed to process image.", testSuccess: "Detection complete.", noFile: "Please select an image file first."
+            },
+            vi: {
+                title: "Cài Đặt", back: "Quay lại Chat", systemTitle: "Trạng thái Hệ thống", systemConfig: "Cấu hình Hệ thống",
+                llamaTitle: "Cấu hình Models LLM (models/cfg.json)", llamaSubtitle: "(Quản lý bởi Llama Server)", addModel: "+ Thêm Model",
+                saveConfig: "Lưu Cấu hình", reloadLlama: "Tải lại Llama Server",
+                captionerTitle: "Models Image Captioner", captionerSelect: "Chọn Model:", switchModel: "Chuyển Model",
+                emotionTitle: "Module Phân tích Cảm xúc (CPU)", emotionSubtitle: "Tải lên một ảnh để kiểm tra module phát hiện.",
+                emotionTestBtn: "Kiểm tra Phát hiện", loading: "Đang tải...", error: "Lỗi", success: "Thành công",
+                vramFree: "VRAM còn trống", gpuLoad: "Tải GPU", ramFree: "RAM còn trống", cpuLoad: "Tải CPU",
+                gpuModel: "Model GPU", totalVRAM: "Tổng VRAM", cudaVersion: "Phiên bản CUDA",
+                cpuModel: "Model CPU", totalRAM: "Tổng RAM", os: "Hệ điều hành",
+                delete: "Xóa", deleteConfirm: "Bạn có chắc muốn xóa cấu hình model này?",
+                path: "Đường dẫn:", format: "Định dạng:", maxContext: "Max Context:", temperature: "Nhiệt độ:", topP: "Top P:",
+                switch: "Chuyển", active: "Đang chạy", switchSuccess: "Chuyển model thành công.", switchError: "Chuyển model thất bại.",
+                saveSuccess: "Lưu cấu hình thành công.", saveError: "Lưu cấu hình thất bại.",
+                reloadSuccess: "Đã yêu cầu Llama Server tải lại.", reloadError: "Tải lại Llama Server thất bại.",
+                testProcessing: "Đang xử lý...", testError: "Xử lý ảnh thất bại.", testSuccess: "Phát hiện hoàn tất.", noFile: "Vui lòng chọn một file ảnh trước."
+            }
+        };
+        let currentLang = localStorage.getItem('emotica-lang') || 'en';
+        function translateUI(lang) {
+            document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = translations[lang][el.getAttribute('data-i18n')] || el.textContent; });
+        }
+        
+        // --- DOM Elements ---
+        const backBtn = document.getElementById('back-btn');
+        const statsContent = document.getElementById('system-stats-content');
+        const configContent = document.getElementById('system-config-content');
+        const modelsList = document.getElementById('models-list');
+        const captionerSelect = document.getElementById('image-captioner-select');
+        const switchCaptionerBtn = document.getElementById('switch-captioner-btn');
+        const testEmotionBtn = document.getElementById('test-emotion-btn');
+        const emotionUpload = document.getElementById('emotion-test-upload');
+        const emotionResult = document.getElementById('emotion-test-result');
+        const emotionImage = document.getElementById('emotion-test-image');
+        const emotionStatus = document.getElementById('emotion-test-status');
+        const toastContainer = document.getElementById('toast-container');
+        const addModelBtn = document.getElementById('add-model-btn');
+        const saveConfigBtn = document.getElementById('save-config-btn');
+        const reloadLlamaBtn = document.getElementById('reload-llama-btn');
+        
+        // --- Biến State ---
+        let configData = { models: [], valid_formats: [] }; // Giữ state của cfg.json
+        let modelIndexCounter = 0;
+
+        // --- Toast ---
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-lg shadow-lg text-white ${isError ? 'bg-red-500' : 'bg-green-500'} animate-fade-in`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        // --- Hàm Tải Dữ Liệu ---
+        async function loadSystemStats() {
+            try {
+                const response = await fetch('/api/system/stats');
+                if (!response.ok) throw new Error('Failed to fetch stats');
+                const stats = await response.json();
+                if (stats.system_type === 'gpu') {
+                    statsContent.innerHTML = `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">${translations[currentLang].vramFree}:</span><span class="font-medium text-gray-900 dark:text-gray-100">${stats.vram_free_gb} GB</span></div><div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">${translations[currentLang].gpuLoad}:</span><span class="font-medium text-gray-900 dark:text-gray-100">${stats.gpu_load_percent}%</span></div>`;
+                    configContent.innerHTML = `<p class="text-gray-600 dark:text-gray-400">${translations[currentLang].gpuModel}: ${stats.gpu_model}</p><p class="text-gray-600 dark:text-gray-400">${translations[currentLang].totalVRAM}: ${stats.vram_total_gb} GB</p><p class="text-gray-600 dark:text-gray-400">${translations[currentLang].cudaVersion}: ${stats.cuda_version}</p>`;
+                } else {
+                    statsContent.innerHTML = `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">${translations[currentLang].ramFree}:</span><span class="font-medium text-gray-900 dark:text-gray-100">${stats.ram_free_gb} GB</span></div><div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">${translations[currentLang].cpuLoad}:</span><span class="font-medium text-gray-900 dark:text-gray-100">${stats.cpu_load_percent}%</span></div>`;
+                    configContent.innerHTML = `<p class="text-gray-600 dark:text-gray-400">${translations[currentLang].cpuModel}: ${stats.cpu_model}</p><p class="text-gray-600 dark:text-gray-400">${translations[currentLang].totalRAM}: ${stats.ram_total_gb} GB</p>`;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                statsContent.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+                configContent.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+            }
+        }
+        
+        // CẬP NHẬT: Tải toàn bộ config
+        async function loadModelConfig() {
+            try {
+                const response = await fetch('/api/models/config');
+                if (!response.ok) throw new Error('Failed to fetch config');
+                configData = await response.json();
+                renderModels();
+            } catch (error) {
+                console.error('Error loading Llama config:', error);
+                modelsList.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+            }
+        }
+        
+        // CẬP NHẬT: Render Llama Models từ configData
+        function renderModels() {
+            modelsList.innerHTML = '';
+            if (!configData.models || configData.models.length === 0) {
+                modelsList.innerHTML = `<p class="text-gray-500">No models found in cfg.json. Add one!</p>`;
+                return;
+            }
+            
+            const validFormats = configData.valid_formats || [];
+            
+            configData.models.forEach((model, index) => {
+                const modelDiv = document.createElement('div');
+                modelDiv.className = 'p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600';
+                
+                // Tạo format options
+                const formatOptions = validFormats.map(fmt => 
+                    `<option value="${fmt}" ${fmt === model.format ? 'selected' : ''}>${fmt}</option>`
+                ).join('');
+                
+                modelDiv.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <input type="text" value="${model.name}" class="text-lg font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500" onchange="updateModel(${index}, 'name', this.value)">
+                            <input type="text" value="${model.description || ''}" placeholder="Description" class="mt-1 text-sm text-gray-600 dark:text-gray-400 bg-transparent w-full border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500" onchange="updateModel(${index}, 'description', this.value)">
+                        </div>
+                        <button class="text-red-500 hover:text-red-700 text-sm font-medium" onclick="deleteModel(${index})">${translations[currentLang].delete}</button>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${translations[currentLang].path}</label>
+                            <input type="text" value="${model.path}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" onchange="updateModel(${index}, 'path', this.value)">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${translations[currentLang].format}</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" onchange="updateModel(${index}, 'format', this.value)">
+                                ${formatOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${translations[currentLang].maxContext}:</label>
+                            <input type="number" value="${model.max_context}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" onchange="updateModel(${index}, 'max_context', parseInt(this.value))">
+                        </div>
+                        <div class="md:col-span-2 grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${translations[currentLang].temperature}:</label>
+                                <input type="number" step="0.1" value="${model.temperature}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" onchange="updateModel(${index}, 'temperature', parseFloat(this.value))">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${translations[currentLang].topP}:</label>
+                                <input type="number" step="0.1" value="${model.top_p}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" onchange="updateModel(${index}, 'top_p', parseFloat(this.value))">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                modelsList.appendChild(modelDiv);
+            });
+        }
+        
+        // CẬP NHẬT: Hàm quản lý config state
+        function addModel() {
+            const newModel = {
+                name: `New Model ${++modelIndexCounter}`,
+                path: "models/new-model.Q4_K_M.gguf",
+                format: "llama-3",
+                description: "A new model.",
+                max_context: 4096,
+                temperature: 0.7,
+                top_p: 0.9
+            };
+            configData.models.push(newModel);
+            renderModels();
+        }
+        function deleteModel(index) {
+            if (confirm(translations[currentLang].deleteConfirm)) {
+                configData.models.splice(index, 1);
+                renderModels();
+            }
+        }
+        function updateModel(index, key, value) {
+            configData.models[index][key] = value;
+            console.log(`Updated model ${index}: ${key} = ${value}`);
+        }
+        
+        // Tải Captioner Models
+        async function loadCaptionerModels() {
+            try {
+                const response = await fetch('/api/models/captioner');
+                if (!response.ok) throw new Error('Failed to fetch captioner models');
+                const data = await response.json();
+                captionerSelect.innerHTML = '';
+                data.supported_models.forEach(modelId => {
+                    const option = document.createElement('option');
+                    option.value = modelId;
+                    option.textContent = modelId;
+                    captionerSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading captioner models:', error);
+                captionerSelect.innerHTML = `<option>${translations[currentLang].error}</option>`;
+            }
+        }
+
+        // --- Gắn Sự Kiện ---
+        
+        backBtn.addEventListener('click', () => { window.location.href = '/chat'; });
+
+        // CẬP NHẬT: Sự kiện cho các nút config
+        addModelBtn.addEventListener('click', addModel);
+        
+        saveConfigBtn.addEventListener('click', async () => {
+            saveConfigBtn.textContent = translations[currentLang].loading;
+            saveConfigBtn.disabled = true;
+            try {
+                const response = await fetch('/api/models/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(configData)
+                });
+                if (!response.ok) throw new Error('Save failed');
+                showToast(translations[currentLang].saveSuccess, false);
+            } catch (error) {
+                console.error('Save config error:', error);
+                showToast(translations[currentLang].saveError, true);
+            } finally {
+                saveConfigBtn.textContent = translations[currentLang].saveConfig;
+                saveConfigBtn.disabled = false;
+            }
+        });
+        
+        reloadLlamaBtn.addEventListener('click', async () => {
+            reloadLlamaBtn.textContent = translations[currentLang].loading;
+            reloadLlamaBtn.disabled = true;
+            try {
+                const response = await fetch('/api/models/config/reload', { method: 'POST' });
+                if (!response.ok) throw new Error('Reload failed');
+                showToast(translations[currentLang].reloadSuccess, false);
+            } catch (error) {
+                console.error('Reload Llama error:', error);
+                showToast(translations[currentLang].reloadError, true);
+            } finally {
+                reloadLlamaBtn.textContent = translations[currentLang].reloadLlama;
+                reloadLlamaBtn.disabled = false;
+            }
+        });
+
+        // Switch Captioner
+        switchCaptionerBtn.addEventListener('click', async () => {
+            const modelId = captionerSelect.value;
+            switchCaptionerBtn.textContent = translations[currentLang].loading;
+            switchCaptionerBtn.disabled = true;
+            try {
+                const response = await fetch('/api/models/captioner/switch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ model_id: modelId })
+                });
+                if (!response.ok) throw new Error('Switch failed');
+                showToast(translations[currentLang].switchSuccess, false);
+            } catch (error) {
+                console.error('Switch error:', error);
+                showToast(translations[currentLang].switchError, true);
+            } finally {
+                switchCaptionerBtn.textContent = translations[currentLang].switchModel;
+                switchCaptionerBtn.disabled = false;
+            }
+        });
+
+        // Test Emotion
+        testEmotionBtn.addEventListener('click', async () => {
+            const file = emotionUpload.files[0];
+            if (!file) {
+                showToast(translations[currentLang].noFile, true);
+                return;
+            }
+            testEmotionBtn.textContent = translations[currentLang].testProcessing;
+            testEmotionBtn.disabled = true;
+            emotionStatus.textContent = '';
+            emotionResult.classList.add('hidden');
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const response = await fetch('/api/emotion/test', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error('Processing failed');
+                const imageBlob = await response.blob();
+                const imageUrl = URL.createObjectURL(imageBlob);
+                emotionImage.src = imageUrl;
+                emotionStatus.textContent = translations[currentLang].testSuccess;
+                emotionResult.classList.remove('hidden');
+            } catch (error) {
+                console.error('Emotion test error:', error);
+                showToast(translations[currentLang].testError, true);
+                emotionStatus.textContent = `${translations[currentLang].error}: ${error.message}`;
+                emotionResult.classList.remove('hidden');
+                emotionImage.src = '';
+            } finally {
+                testEmotionBtn.textContent = translations[currentLang].emotionTestBtn;
+                testEmotionBtn.disabled = false;
+            }
+        });
+        
+        // Load khi trang load
+        document.addEventListener('DOMContentLoaded', () => {
+            translateUI(currentLang);
+            loadSystemStats();
+            loadModelConfig(); // Cập nhật
+            loadCaptionerModels();
+        });
+
+    </script>
+</body>
+</html>

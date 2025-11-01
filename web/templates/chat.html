@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/icon.png" type="image/png">
+    <title>Emotica AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* ... (Các style CSS cơ bản không đổi) ... */
+
+        .chat-item { 
+            transition: all 0.3s ease; 
+            position: relative;
+        }
+        .chat-item:hover { 
+            background-color: #374151; /* dark:bg-gray-700 */
+        }
+        .chat-item.active { 
+            background-color: #374151; /* dark:bg-gray-700 */
+            border-left-width: 4px;
+            border-left-color: #3b82f6;
+        }
+        
+        .input-bar { transition: box-shadow 0.2s ease; }
+        .input-bar:focus-within { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .sidebar-header { background: linear-gradient(to bottom, #1f2937, #111827); }
+        .input-container { align-items: center; }
+        .input-container > * { display: flex; align-items: center; }
+        .ai-icon { margin-top: 20px; }
+        .tts-label { margin-bottom: 15px; }
+        .voice-panel { animation: panelSlide 0.3s ease-out; }
+        #doc-warning { display: none; }
+        #doc-toggle:hover + #doc-warning, #doc-warning:hover { display: block; }
+
+        /* ... (Markdown CSS không đổi) ... */
+        .markdown-content pre { 
+            background-color: #111827; /* dark:bg-gray-900 */
+            color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content code:not(pre code) { 
+            background-color: #374151; /* dark:bg-gray-700 */
+            color: #f87171; /* dark:text-red-400 */
+            padding-left: 0.25rem;
+            padding-right: 0.25rem;
+            padding-top: 0.125rem;
+            padding-bottom: 0.125rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .markdown-content ul { list-style-type: disc; list-style-position: inside; }
+        .markdown-content ol { list-style-type: decimal; list-style-position: inside; }
+        .markdown-content blockquote { 
+            border-left-width: 4px;
+            border-left-color: #4b5563; /* dark:border-gray-600 */
+            padding-left: 1rem;
+            font-style: italic;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        #emotion-video-preview { position: fixed; bottom: 100px; right: 20px; width: 200px; height: 150px; border: 2px solid #3b82f6; border-radius: 8px; object-fit: cover; display: none; z-index: 100; }
+        
+        #voice-status { 
+            font-size: 1.125rem;
+            color: #d1d5db; /* dark:text-gray-300 */
+            margin-top: 1rem;
+        }
+        
+        #voice-record-btn.recording { 
+            background-color: #ef4444;
+            color: #ffffff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: scale(1.1);
+        }
+        #voice-record-btn.idle { 
+            background-color: #3b82f6;
+            color: #ffffff;
+        }
+        #voice-record-btn.processing { 
+            background-color: #9ca3af;
+            color: #ffffff;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .quick-delete-btn {
+            position: absolute;
+            top: 50%;
+            right: 0.5rem;
+            transform: translateY(-50%);
+            padding: 0.25rem;
+            color: #9ca3af;
+            border-radius: 9999px;
+            display: none;
+            z-index: 10;
+        }
+        .quick-delete-btn:hover { color: #ef4444; }
+        .chat-item:hover .quick-delete-btn { display: block; }
+
+        @keyframes pulse { 50% { opacity: .5; } }
+
+        .sidebar-collapsed { margin-left: -320px; }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            background-color: #6b7280; /* dark bg */
+            margin: 0 2px;
+            animation: typing-bounce 1.4s infinite both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: 0.0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* ... (Suggestion card CSS không đổi) ... */
+        .suggestion-card {
+            padding: 1rem; /* p-4 */
+            background-color: #1f2937; /* dark:bg-gray-800 */
+            border: 1px solid #374151; /* dark:border-gray-700 */
+            border-radius: 0.5rem; /* rounded-lg */
+            transition: all 0.3s ease; /* transition-all */
+            cursor: pointer; /* cursor-pointer */
+        }
+        .suggestion-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* hover:shadow-md */
+            border-color: #3b82f6; /* dark:hover:border-blue-500 */
+        }
+
+        /* ... (Scrollbar CSS không đổi) ... */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #4b5563; /* bg-gray-600 */
+            border-radius: 10px;
+            border: 2px solid #1f2937; /* bg-gray-800 border */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #6b7280; /* bg-gray-500 */
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #4b5563 #1f2937; /* thumb track */
+        }
+
+        /* Voice STT Styles */
+        #stt-lang-select {
+            background-color: #374151;
+            color: #f9fafb;
+            border: 1px solid #4b5563;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+        }
+        #stt-lang-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        #stt-auto-stop-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        #stt-transcript-display {
+            background-color: #1f2937;
+            border: 1px solid #4b5563;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            min-height: 4rem;
+            margin-top: 0.5rem;
+            color: #f9fafb;
+            font-family: monospace;
+        }
+        #stt-listening-indicator {
+            display: none;
+            color: #ef4444;
+            animation: pulse 1s infinite;
+        }
+        #stt-listening-indicator.active {
+            display: inline;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 antialiased">
+    <div id="voice-panel" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-xl p-8 max-w-lg w-full mx-auto relative voice-panel text-center">
+            
+            <h3 class="text-xl font-semibold text-gray-100 mb-2" data-i18n="voiceChatTitle">Voice Chat</h3>
+            <p class="text-gray-400 mb-4" data-i18n="voiceChatSubtitle">Talk directly to Emotica AI.</p>
+            
+            <div class="w-full bg-gray-700 rounded-lg overflow-hidden h-48 mb-4 flex items-center justify-center">
+                <video id="voice-video-preview" class="w-full h-full object-cover" autoplay playsinline muted></video>
+                <span id="voice-video-placeholder" class="text-gray-500" data-i18n="cameraLoading">Camera loading...</span>
+            </div>
+            
+            <div class="mb-4">
+                <label for="stt-lang-select" class="block text-sm font-medium text-gray-300 mb-1" data-i18n="sttLanguage">Language</label>
+                <select id="stt-lang-select">
+                    <option value="auto">Auto-detect</option>
+                    <option value="vi-VN">Tiếng Việt</option>
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (GB)</option>
+                </select>
+                <div id="stt-auto-stop-toggle">
+                    <input type="checkbox" id="stt-auto-stop" checked>
+                    <label for="stt-auto-stop" class="text-sm text-gray-300" data-i18n="sttAutoStop">Auto-stop on pause</label>
+                </div>
+            </div>
+            
+            <div id="stt-transcript-display" placeholder="Transcript will appear here..."></div>
+            <span id="stt-listening-indicator" data-i18n="sttListening">Listening...</span>
+            
+            <button id="voice-record-btn" class="idle w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 mx-auto mt-2">
+                <i id="voice-record-icon" class="bi bi-mic-fill text-white text-3xl"></i>
+            </button>
+            
+            <p id="voice-status" data-i18n="voiceStatusReady">Press the mic to start recording.</p>
+            
+            <button id="close-voice-btn" class="text-gray-400 hover:text-gray-200 text-3xl absolute top-4 right-5">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    </div>
+    <video id="emotion-video-preview" autoplay playsinline muted></video>
+    <canvas id="emotion-canvas" style="display: none;"></canvas>
+
+    <div class="flex h-screen overflow-hidden">
+        
+        <div id="sidebar" class="w-80 bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 shadow-lg flex-shrink-0">
+            <div class="p-4 border-b border-gray-700 flex-shrink-0 sidebar-header">
+                <div class="flex items-center space-x-3 mb-4">
+                    <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+                        E
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-100">Emotica AI</h1>
+                </div>
+                <button id="new-chat-btn" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm" data-i18n="newChat">
+                    + New Chat
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-2 py-2">
+                <div class="p-2 mb-2">
+                    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide" data-i18n="history">History</h2>
+                </div>
+                <ul class="space-y-1" id="chat-history-list">
+                    </ul>
+            </div>
+
+            <div class="p-4 border-t border-gray-700 flex-shrink-0">
+                <button id="lang-toggle" class="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-gray-100 rounded-lg transition-all duration-200 hover:bg-gray-700 mb-2">
+                    <i class="bi bi-translate text-lg"></i>
+                    <span data-i18n="language">Language</span>
+                    <span id="lang-indicator" class="ml-auto text-xs text-gray-500">EN</span>
+                </button>
+                <button id="settings-btn" class="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-gray-100 rounded-lg transition-all duration-200 hover:bg-gray-700 mb-2">
+                    <i class="bi bi-gear text-lg"></i>
+                    <span data-i18n="settings">Settings</span>
+                </button>
+                
+                <button id="memory-btn" class="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-gray-100 rounded-lg transition-all duration-200 hover:bg-gray-700 mb-2">
+                    <i class="bi bi-brain text-lg"></i>
+                    <span data-i18n="memory">Memory</span>
+                </button>
+                <button id="doc-toggle" class="w-full flex items-center justify-between px-3 py-2 text-gray-300 hover:text-gray-100 rounded-lg transition-all duration-200 hover:bg-gray-700 mb-2">
+                    <div class="flex items-center space-x-2">
+                        <i class="bi bi-file-earmark-text text-lg"></i>
+                        <span data-i18n="useRAG">Use Documents (RAG)</span>
+                    </div>
+                    <div class="ml-auto w-10 h-5 bg-gray-600 rounded-full relative cursor-pointer">
+                        <div class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform duration-300 translate-x-0" id="doc-slider"></div>
+                    </div>
+                </button>
+                <div id="doc-warning" class="text-xs text-orange-400 mb-2 pl-5" data-i18n="ragWarning">Warning: AI may respond slower.</div>
+                <button id="manage-docs-btn" class="w-full flex items-center justify-between px-3 py-2 text-gray-300 hover:text-gray-100 rounded-lg transition-all duration-200 hover:bg-gray-700">
+                    <div class="flex items-center space-x-2">
+                        <i class="bi bi-folder2 text-lg"></i>
+                        <span data-i18n="manageRAG">Manage Documents</span>
+                    </div>
+                    <i class="bi bi-chevron-right text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col bg-gray-900">
+            <div class="p-4 border-b border-gray-700 bg-gray-800 flex items-center justify-between shadow-sm">
+                <div class="flex items-center space-x-3">
+                    
+                    <button id="sidebar-toggle" class="p-2 text-gray-400 hover:text-gray-200 transition-colors rounded-full hover:bg-gray-700">
+                        <i class="bi bi-layout-sidebar-inset"></i>
+                    </button>
+                    
+                    <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+                        <i class="bi bi-chat-dots"></i>
+                    </div>
+                    <div>
+                        <h2 id="chat-title" class="font-semibold text-gray-100" data-i18n="newChat">New Chat</h2>
+                        <p class="text-sm text-gray-400" data-i18n="chatSubtitle">Chat with Emotica AI</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="delete-chat-btn" title="Delete current chat" class="p-2 text-gray-400 hover:text-red-400 transition-colors" disabled>
+                        <i class="bi bi-trash3 text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 space-y-6" id="chat-messages">
+                
+                <div id="empty-chat-placeholder" class="hidden h-full flex flex-col justify-center items-center">
+                    <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white text-3xl font-bold mb-4">
+                        E
+                    </div>
+                    <h2 class="text-3xl font-semibold text-gray-100 mb-6">Emotica AI</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
+                        <div class="suggestion-card" data-prompt="I'm feeling really anxious today. Can we talk about it?">
+                            <h3 class="font-semibold text-gray-100 mb-1">Talk about anxiety</h3>
+                            <p class="text-sm text-gray-400">"I'm feeling really anxious today..."</p>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Can you give me a mindfulness exercise?">
+                            <h3 class="font-semibold text-gray-100 mb-1">Mindfulness exercise</h3>
+                            <p class="text-sm text-gray-400">"Can you give me a mindfulness exercise?"</p>
+                        </div>
+                        <div class="suggestion-card" data-prompt="I had a conflict with a friend. How can I handle it?">
+                            <h3 class="font-semibold text-gray-100 mb-1">Handle conflict</h3>
+                            <p class="text-sm text-gray-400">"I had a conflict with a friend..."</p>
+                        </div>
+                        <div class="suggestion-card" data-prompt="What are some healthy coping mechanisms for stress?">
+                            <h3 class="font-semibold text-gray-100 mb-1">Coping mechanisms</h3>
+                            <p class="text-sm text-gray-400">"What are some healthy coping mechanisms?"</p>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+            <div class="p-4 border-t border-gray-700 bg-gray-800 input-bar shadow-sm">
+                
+                <div id="image-preview-container" class="hidden max-w-4xl mx-auto mb-2">
+                    <div id="image-preview" class="inline-flex items-center space-x-2 p-2 bg-gray-700 rounded-lg">
+                        <img id="preview-img" class="w-12 h-12 rounded object-cover border border-gray-600">
+                        <span id="preview-filename" class="text-sm text-gray-300">image.jpg</span>
+                        <button id="remove-preview" class="p-1 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors">
+                            <i class="bi bi-x text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="max-w-4xl mx-auto flex items-center space-x-3 input-container">
+                    <select id="model-select" class="px-3 py-2.5 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-gray-100 text-sm min-h-[38px]">
+                        <option value="default" data-i18n="loadingModels">Loading Models...</option>
+                    </select>
+                    <label for="image-upload" class="p-2.5 text-gray-400 hover:text-gray-200 cursor-pointer transition-colors rounded-full hover:bg-gray-700 min-h-[38px] flex items-center" data-i18n-title="uploadImage">
+                        <i class="bi bi-paperclip text-lg"></i>
+                        <input type="file" id="image-upload" accept="image/*" class="hidden">
+                    </label>
+                    <div class="flex-1 min-w-0">
+                        <textarea 
+                            rows="1" 
+                            placeholder="Message Emotica AI..." 
+                            data-i18n-placeholder="messagePlaceholder"
+                            class="w-full p-3 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none max-h-32 overflow-y-auto bg-gray-700 text-gray-100 font-medium min-h-[38px]" id="message-input" disabled></textarea>
+                    </div>
+                    <button class="p-2.5 text-gray-400 hover:text-blue-400 transition-colors rounded-full hover:bg-blue-900/20 min-h-[38px] flex items-center" id="mic-btn" data-i18n-title="voiceChat">
+                        <i class="bi bi-mic text-lg"></i>
+                    </button>
+                    <button class="p-2.5 text-gray-400 hover:text-green-400 transition-colors rounded-full hover:bg-green-900/20 min-h-[38px] flex items-center" id="camera-toggle" data-i18n-title="emotionDetection">
+                        <i class="bi bi-eye text-lg"></i>
+                    </button>
+                    <button 
+                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-sm font-medium min-h-[38px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" 
+                        id="send-btn" disabled>
+                        <i class="bi bi-send text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ### START: THAY ĐỔI (Thêm key dịch thuật) ###
+        const translations = {
+            en: {
+                newChat: "New Chat", history: "History", settings: "Settings", language: "Language", darkMode: "Dark Mode",
+                useRAG: "Use Documents (RAG)", ragWarning: "Warning: AI may respond slower.", manageRAG: "Manage Documents",
+                chatSubtitle: "Chat with Emotica AI", loadingModels: "Loading Models...", uploadImage: "Upload Image",
+                messagePlaceholder: "Message Emotica AI...", voiceChat: "Voice Chat", emotionDetection: "Emotion Detection (Snapshot)",
+                voiceChatTitle: "Voice Chat", voiceChatSubtitle: "Talk directly to Emotica AI.", cameraLoading: "Camera loading...",
+                voiceStatusReady: "Press the mic to start recording.", voiceStatusRecording: "Recording... Press to stop.",
+                voiceStatusProcessing: "Processing audio...", voiceStatusSpeaking: "AI is speaking", // Sửa: Bỏ ... để JS tự thêm
+                emotionSnapshotTitle: "Emotion Snapshot",
+                emotionSnapshotText: "Allow access to the camera to analyze your emotion before sending the message?",
+                confirm: "Confirm", cancel: "Cancel", error: "Error", cameraError: "Could not access camera. Please check permissions.",
+                sttError: "Speech-to-text failed. Please try again.", ttsError: "Text-to-speech failed.",
+                chatDeleteConfirm: "Are you sure you want to delete this chat session?", lightMode: "Light Mode", // (Giữ lại key này cho dù không dùng)
+                voiceTTSError: "AI response received, but TTS failed.", voiceSuccess: "AI response received. Playing audio...",
+                memory: "Memory", // <-- THÊM MỚI
+                saveAndRegenerate: "Save & Regenerate", // <-- THÊM MỚI
+                sttLanguage: "Language", sttAutoStop: "Auto-stop on pause", sttListening: "Listening..."
+            },
+            vi: {
+                newChat: "Chat Mới", history: "Lịch sử", settings: "Cài đặt", language: "Ngôn ngữ", darkMode: "Chế độ tối",
+                useRAG: "Dùng tài liệu (RAG)", ragWarning: "Cảnh báo: AI có thể phản hồi chậm hơn.", manageRAG: "Quản lý tài liệu",
+                chatSubtitle: "Trò chuyện với Emotica AI", loadingModels: "Đang tải models...", uploadImage: "Tải ảnh lên",
+                messagePlaceholder: "Nhắn tin cho Emotica AI...", voiceChat: "Chat bằng giọng nói", emotionDetection: "Phát hiện cảm xúc (Ảnh chụp)",
+                voiceChatTitle: "Chat bằng giọng nói", voiceChatSubtitle: "Nói chuyện trực tiếp với Emotica AI.", cameraLoading: "Đang tải camera...",
+                voiceStatusReady: "Nhấn mic để bắt đầu ghi âm.", voiceStatusRecording: "Đang ghi... Nhấn để dừng.",
+                voiceStatusProcessing: "Đang xử lý âm thanh...", voiceStatusSpeaking: "AI đang nói", // Sửa: Bỏ ... để JS tự thêm
+                emotionSnapshotTitle: "Ảnh chụp cảm xúc",
+                emotionSnapshotText: "Cho phép truy cập camera để phân tích cảm xúc của bạn trước khi gửi tin nhắn?",
+                confirm: "Xác nhận", cancel: "Hủy", error: "Lỗi", cameraError: "Không thể truy cập camera. Vui lòng kiểm tra quyền.",
+                sttError: "Chuyển giọng nói thất bại. Vui lòng thử lại.", ttsError: "Chuyển văn bản thất bại.",
+                chatDeleteConfirm: "Bạn có chắc muốn xóa đoạn chat này?", lightMode: "Chế độ sáng", // (Giữ lại key này cho dù không dùng)
+                voiceTTSError: "Đã nhận phản hồi AI, nhưng TTS thất bại.", voiceSuccess: "Đã nhận phản hồi AI. Đang phát âm thanh...",
+                memory: "Quản lý Ký Ức", // <-- THÊM MỚI
+                saveAndRegenerate: "Lưu & Tạo Lại", // <-- THÊM MỚI
+                sttLanguage: "Ngôn ngữ", sttAutoStop: "Tự dừng khi ngắt câu", sttListening: "Đang nghe..."
+            }
+        };
+        // ### END: THAY ĐỔI (Thêm key dịch thuật) ###
+        
+        let currentLang = localStorage.getItem('emotica-lang') || 'en';
+
+        function translateUI(lang) {
+            currentLang = lang;
+            localStorage.setItem('emotica-lang', lang);
+            document.documentElement.lang = lang;
+            document.getElementById('lang-indicator').textContent = lang.toUpperCase();
+            document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = translations[lang][el.getAttribute('data-i18n')] || el.textContent; });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = translations[lang][el.getAttribute('data-i18n-placeholder')] || el.placeholder; });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = translations[lang][el.getAttribute('data-i18n-title')] || el.title; });
+        }
+
+        // --- Biến Trạng Thái Toàn Cục ---
+        let currentSessionId = null;
+        let useRAG = false;
+        let isEmotionCamActive = false;
+        let selectedImageFile = null; 
+        let isStreaming = false; 
+        let currentAIResponseElement = null;
+        let clipboardCopyId = 0; 
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let voiceStream = null;
+        let emotionInterval = null;
+        let voiceEmotionHistory = [];
+        let isRecording = false;
+        let currentTTSAudio = null;
+
+        // STT Vars
+        let recognition = null;
+        let sttLang = 'auto';
+        let sttAutoStop = true;
+        let sttTranscript = '';
+        let sttSilenceTimeout = null;
+        let voiceStatusInterval = null; // <-- THÊM BIẾN NÀY
+
+        // --- DOM Elements ---
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const modelSelect = document.getElementById('model-select');
+        const chatHistoryList = document.getElementById('chat-history-list');
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const chatTitle = document.getElementById('chat-title');
+        const deleteChatBtn = document.getElementById('delete-chat-btn');
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const previewImg = document.getElementById('preview-img');
+        const previewFilename = document.getElementById('preview-filename');
+        const removePreviewBtn = document.getElementById('remove-preview');
+        const docToggle = document.getElementById('doc-toggle');
+        const docSlider = document.getElementById('doc-slider');
+        const cameraToggle = document.getElementById('camera-toggle');
+        const emotionVideo = document.getElementById('emotion-video-preview');
+        const emotionCanvas = document.getElementById('emotion-canvas');
+        const voicePanel = document.getElementById('voice-panel');
+        const micBtn = document.getElementById('mic-btn');
+        const closeVoiceBtn = document.getElementById('close-voice-btn');
+        const voiceVideo = document.getElementById('voice-video-preview');
+        const voiceVideoPlaceholder = document.getElementById('voice-video-placeholder');
+        const voiceRecordBtn = document.getElementById('voice-record-btn');
+        const voiceRecordIcon = document.getElementById('voice-record-icon');
+        const voiceStatus = document.getElementById('voice-status');
+        const settingsBtn = document.getElementById('settings-btn');
+        const manageDocsBtn = document.getElementById('manage-docs-btn');
+        const langToggle = document.getElementById('lang-toggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const emptyChatPlaceholder = document.getElementById('empty-chat-placeholder');
+        const memoryBtn = document.getElementById('memory-btn'); // <-- THÊM MỚI
+
+        // STT DOM
+        const sttLangSelect = document.getElementById('stt-lang-select');
+        const sttAutoStopToggle = document.getElementById('stt-auto-stop');
+        const sttTranscriptDisplay = document.getElementById('stt-transcript-display');
+        const sttListeningIndicator = document.getElementById('stt-listening-indicator');
+
+        // --- Hàm Tiện Ích ---
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-5 right-5 p-4 rounded-lg shadow-lg text-white ${isError ? 'bg-red-500' : 'bg-green-600'} animate-fade-in`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+        
+        // 🧑‍🚀 HÀM HELPER MỚI: Cập nhật UI của Voice Panel
+        function setVoiceStatus(statusKey, isProcessing = false) {
+            // Xóa animation "..." cũ (nếu có)
+            if (voiceStatusInterval) {
+                clearInterval(voiceStatusInterval);
+                voiceStatusInterval = null;
+            }
+            
+            const baseText = translations[currentLang][statusKey] || statusKey;
+            
+            if (voiceStatus) {
+                voiceStatus.textContent = baseText;
+            }
+            
+            voiceRecordBtn.classList.remove('idle', 'recording', 'processing');
+            
+            if (isProcessing) {
+                // Trạng thái "đang xử lý" (gửi STT, chờ AI, AI nói)
+                voiceRecordBtn.classList.add('processing');
+                voiceRecordIcon.className = 'bi bi-robot text-white text-3xl'; // Icon Robot
+                
+                // Animation "..."
+                let dots = 0;
+                voiceStatusInterval = setInterval(() => {
+                    dots = (dots + 1) % 4; // 0, 1, 2, 3
+                    voiceStatus.textContent = baseText + ".".repeat(dots);
+                }, 500);
+
+            } else if (statusKey === 'voiceStatusRecording') {
+                // Trạng thái "đang ghi âm"
+                voiceRecordBtn.classList.add('recording');
+                voiceRecordIcon.className = 'bi bi-stop-circle-fill text-white text-3xl';
+            } else {
+                // Trạng thái "sẵn sàng" (mặc định)
+                voiceRecordBtn.classList.add('idle');
+                voiceRecordIcon.className = 'bi bi-mic-fill text-white text-3xl';
+            }
+        }
+        
+        function formatSimpleTime(date) { return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+        function renderMarkdown(text) {
+            const rawHtml = marked.parse(text);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = rawHtml;
+            tempDiv.querySelectorAll('pre code').forEach((block) => { hljs.highlightElement(block); });
+            return tempDiv.innerHTML;
+        }
+        
+        // ### START: FIX 2 (Thêm helper disable UI) ###
+        /**
+         * Helper: Vô hiệu hóa (hoặc kích hoạt) toàn bộ input chat
+         */
+        function disableChatInputs(disabled, placeholderText = null) {
+            messageInput.disabled = disabled;
+            sendBtn.disabled = disabled;
+            modelSelect.disabled = disabled;
+            
+            const uploadLabel = document.querySelector('label[for="image-upload"]');
+            if (uploadLabel) {
+                uploadLabel.style.pointerEvents = disabled ? 'none' : 'auto';
+                uploadLabel.style.opacity = disabled ? '0.5' : '1';
+            }
+            
+            micBtn.disabled = disabled;
+            cameraToggle.disabled = disabled;
+
+            if (disabled && placeholderText) {
+                messageInput.placeholder = placeholderText;
+            } else {
+                // Restore original placeholder
+                messageInput.placeholder = translations[currentLang].messagePlaceholder;
+            }
+        }
+        // ### END: FIX 2 (Thêm helper disable UI) ###
+
+        function createCopyButton(id) {
+            const btn = document.createElement('button');
+            btn.className = 'absolute bottom-2 right-2 p-1 text-gray-400 hover:text-gray-200 transition-colors';
+            btn.innerHTML = `<i class="bi bi-clipboard"></i>`;
+            btn.title = 'Copy code';
+            btn.onclick = () => {
+                const content = document.getElementById(`ai-msg-content-${id}`).innerText;
+                navigator.clipboard.writeText(content).then(() => {
+                    btn.innerHTML = `<i class="bi bi-check-lg text-green-400"></i>`;
+                    setTimeout(() => { btn.innerHTML = `<i class="bi bi-clipboard"></i>`; }, 2000);
+                });
+            };
+            return btn;
+        }
+        
+        function createLoadingMessage() {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex justify-start space-x-2 items-start message`;
+            messageDiv.id = 'loading-indicator';
+            messageDiv.innerHTML = `
+                <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-gray-400 mr-2 flex-shrink-0 ai-icon"><i class="bi bi-robot"></i></div>
+                <div class="relative max-w-2xl bg-gray-700 text-gray-100 p-4 rounded-2xl rounded-bl-md">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            return messageDiv;
+        }
+
+        // --- Logic Render Tin Nhắn ---
+
+        // ### START: THAY ĐỔI (Thêm `msg.id` và Nút Edit) ###
+        function createMessageElement(msg) {
+            const time = formatSimpleTime(new Date()); 
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} space-x-2 items-start message`;
+            messageDiv.dataset.messageId = msg.id; // <-- LƯU ID VÀO DOM
+            
+            let contentHtml = '', imageHtml = '', textHtml = '';
+            
+            if (msg.image) {
+                imageHtml = `<img src="${msg.image}" alt="User image" class="mt-2 rounded-lg w-full max-w-xs cursor-pointer" onclick="window.open('${msg.image}')">`;
+            }
+            if(msg.content) {
+                textHtml = (msg.role === 'user') ? `<p>${msg.content.replace(/\n/g, '<br>')}</p>` : `<div class="markdown-content">${renderMarkdown(msg.content)}</div>`;
+            }
+            
+            if (msg.role === 'user') {
+                // Thêm một wrapper 'group' và nút 'edit'
+                contentHtml = `
+                    <div class="relative max-w-2xl group">
+                        <div class="bg-blue-600 text-white p-4 rounded-2xl rounded-br-md">
+                            ${textHtml}${imageHtml}
+                            <span class="text-xs opacity-75 mt-2 block text-right">${time}</span>
+                        </div>
+                        <button class="edit-message-btn absolute top-1/2 -left-8 -translate-y-1/2 p-1 text-gray-500 hover:text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit and Regenerate">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>`;
+            } else { 
+                const msgId = clipboardCopyId++;
+                contentHtml = `<div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-gray-400 mr-2 flex-shrink-0 ai-icon"><i class="bi bi-robot"></i></div><div class="relative max-w-2xl bg-gray-700 text-gray-100 p-4 rounded-2xl rounded-bl-md"><div id="ai-msg-content-${msgId}">${textHtml}</div>${createCopyButton(msgId).outerHTML}<span class="text-xs opacity-75 mt-2 block">${time}</span></div>`;
+            }
+            messageDiv.innerHTML = contentHtml;
+            return messageDiv;
+        }
+        
+        /**
+         * Hiển thị UI để sửa tin nhắn
+         */
+        function showEditUI(messageDiv) {
+            const messageId = messageDiv.dataset.messageId;
+            const originalContentWrapper = messageDiv.querySelector('.relative.group');
+            if (!originalContentWrapper) return; // Đã ở chế độ edit
+
+            // Tìm nội dung text gốc
+            const textContentDiv = originalContentWrapper.querySelector('.bg-blue-600');
+            const pElement = textContentDiv.querySelector('p');
+            const originalText = pElement ? pElement.innerText : ''; // innerText sẽ convert <br> thành \n
+
+            const editUI = document.createElement('div');
+            editUI.className = 'max-w-2xl w-full p-4 bg-gray-700 rounded-2xl'; // Nền khác để phân biệt
+            editUI.innerHTML = `
+                <textarea class="w-full p-2 border border-gray-600 rounded-xl bg-gray-800 text-gray-100 font-medium resize-none max-h-48" rows="4"></textarea>
+                <div class="flex justify-end space-x-2 mt-2">
+                    <button class="cancel-edit-btn px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded-lg text-sm" data-i18n="cancel">Cancel</button>
+                    <button class="save-regenerate-btn px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm" data-i18n="saveAndRegenerate">Save & Regenerate</button>
+                </div>
+            `;
+            const textarea = editUI.querySelector('textarea');
+            textarea.value = originalText;
+            
+            // Dịch các nút mới
+            editUI.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = translations[currentLang][el.getAttribute('data-i18n')] || el.textContent; });
+
+            // Ẩn UI gốc, hiển thị UI edit
+            originalContentWrapper.style.display = 'none';
+            messageDiv.appendChild(editUI);
+            textarea.focus();
+            // Tự động điều chỉnh chiều cao
+            textarea.style.height = 'auto'; 
+            textarea.style.height = Math.min(textarea.scrollHeight, 192) + 'px'; // 12rem = 192px
+            textarea.addEventListener('input', () => { 
+                textarea.style.height = 'auto'; 
+                textarea.style.height = Math.min(textarea.scrollHeight, 192) + 'px'; 
+            });
+
+            // Gắn listener
+            editUI.querySelector('.cancel-edit-btn').addEventListener('click', () => {
+                editUI.remove();
+                originalContentWrapper.style.display = 'block';
+            });
+            
+            editUI.querySelector('.save-regenerate-btn').addEventListener('click', () => {
+                const newContent = textarea.value.trim();
+                if (newContent) {
+                    handleRegenerate(messageId, newContent);
+                }
+            });
+        }
+        // ### END: THAY ĐỔI (Thêm `msg.id` và Nút Edit) ###
+        
+        function createOrUpdateStreamingMessage(delta) {
+            const loadingIndicator = document.getElementById('loading-indicator');
+
+            if (!currentAIResponseElement) {
+                const time = formatSimpleTime(new Date());
+                const msgId = clipboardCopyId++;
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `flex justify-start space-x-2 items-start message`;
+                
+                messageDiv.innerHTML = `<div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-gray-400 mr-2 flex-shrink-0 ai-icon"><i class="bi bi-robot"></i></div><div class="relative max-w-2xl bg-gray-700 text-gray-100 p-4 rounded-2xl rounded-bl-md"><div id="ai-msg-content-${msgId}" class="markdown-content"></div><button id="copy-btn-${msgId}" class="absolute bottom-2 right-2 p-1 text-gray-400 hover:text-gray-200 transition-colors" title="Copy code"><i class="bi bi-clipboard"></i></button><span class="text-xs opacity-75 mt-2 block">${time}</span></div>`;
+                
+                if (loadingIndicator) {
+                    chatMessages.replaceChild(messageDiv, loadingIndicator);
+                } else {
+                    chatMessages.appendChild(messageDiv);
+                }
+
+                currentAIResponseElement = messageDiv.querySelector(`#ai-msg-content-${msgId}`);
+                document.getElementById(`copy-btn-${msgId}`).onclick = () => {
+                    navigator.clipboard.writeText(currentAIResponseElement.innerText).then(() => {
+                        document.getElementById(`copy-btn-${msgId}`).innerHTML = `<i class="bi bi-check-lg text-green-400"></i>`;
+                        setTimeout(() => { document.getElementById(`copy-btn-${msgId}`).innerHTML = `<i class="bi bi-clipboard"></i>`; }, 2000);
+                    });
+                };
+            }
+            currentAIResponseElement.innerText += delta;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // ### START: FIX QUAN TRỌNG (Cập nhật finalizeStreamingMessage) ###
+        function finalizeStreamingMessage() {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            let aiResponseText = null; // Biến tạm để lưu text cho TTS
+            
+            if (currentAIResponseElement) {
+                const rawText = currentAIResponseElement.innerText;
+                aiResponseText = rawText; // <-- Lưu text lại
+                
+                currentAIResponseElement.innerHTML = renderMarkdown(rawText);
+                currentAIResponseElement = null; 
+            } else if (loadingIndicator) {
+                loadingIndicator.remove();
+            }
+            
+            isStreaming = false;
+            disableChatInputs(false);
+            
+            // ### START: FIX LỖI GỌI TTS ###
+            // Kiểm tra xem voice panel có đang mở không
+            const shouldPlayTTS = !voicePanel.classList.contains('hidden');
+            
+            if (shouldPlayTTS && aiResponseText) {
+                // Nếu đang mở và có text, thì phát âm thanh
+                (async () => {
+                    try {
+                        // 1. Cập nhật status: "AI đang nói..." (với animation)
+                        setVoiceStatus('voiceStatusSpeaking', true);
+                        
+                        // 2. Phát âm thanh
+                        await playTTS(aiResponseText);
+                        
+                        // 3. Khi nói xong, quay về "Sẵn sàng"
+                        setVoiceStatus('voiceStatusReady');
+                        
+                    } catch (e) {
+                        console.error("TTS playback failed:", e);
+                        showToast(translations[currentLang].ttsError, true);
+                        // 4. Nếu lỗi, cũng quay về "Sẵn sàng"
+                        setVoiceStatus('voiceStatusReady');
+                    }
+                })();
+            } else if (shouldPlayTTS) {
+                // AI không trả về text (ví dụ: lỗi), cũng set về "Sẵn sàng"
+                setVoiceStatus('voiceStatusReady');
+            }
+            // ### END: FIX LỖI GỌI TTS ###
+        }
+        // ### END: FIX QUAN TRỌNG (Cập nhật finalizeStreamingMessage) ###
+        
+        function renderMessageList(messages) {
+            chatMessages.innerHTML = ''; 
+            if (messages.length === 0) {
+                emptyChatPlaceholder.classList.remove('hidden');
+            } else {
+                emptyChatPlaceholder.classList.add('hidden');
+                messages.forEach(msg => {
+                    chatMessages.appendChild(createMessageElement(msg));
+                });
+            }
+            chatMessages.appendChild(emptyChatPlaceholder); 
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // --- Logic Tải Dữ Liệu (API) ---
+        async function loadLlamaModels() {
+            try {
+                const response = await fetch('/api/models/llama');
+                if (!response.ok) throw new Error('Failed to fetch models');
+                const data = await response.json();
+                modelSelect.innerHTML = ''; 
+                data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.name;
+                    modelSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading models:', error);
+                modelSelect.innerHTML = `<option value="default">${translations[currentLang].error}</option>`;
+            }
+        }
+        
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/api/chat/history');
+                if (!response.ok) throw new Error('Failed to fetch history');
+                const sessions = await response.json();
+                chatHistoryList.innerHTML = '';
+                sessions.forEach(session => {
+                    const li = document.createElement('li');
+                    li.className = `chat-item ${session.id === currentSessionId ? 'active' : ''}`;
+                    li.setAttribute('data-session-id', session.id);
+                    
+                    li.innerHTML = `
+                        <a href="/chat/${session.id}" class="block p-3 rounded-lg cursor-pointer pr-8"> 
+                            <div class="font-medium text-gray-100 truncate">${session.title}</div>
+                            <div class="text-xs text-gray-400 mt-1">${new Date(session.created_at).toLocaleString(currentLang)}</div>
+                        </a>
+                        <button class="quick-delete-btn" title="Delete chat">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                        `;
+                    
+                    li.querySelector('a').addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (isStreaming) return;
+                        const id = e.currentTarget.closest('li').getAttribute('data-session-id');
+                        window.history.pushState({sessionId: id}, '', `/chat/${id}`);
+                        loadChatSession(parseInt(id));
+                    });
+                    
+                    li.querySelector('.quick-delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation(); 
+                        if (isStreaming) return;
+                        const id = e.currentTarget.closest('li').getAttribute('data-session-id');
+                        deleteChatSession(parseInt(id));
+                    });
+
+                    chatHistoryList.appendChild(li);
+                });
+            } catch (error) { console.error('Error loading chat history:', error); }
+        }
+        
+        async function loadChatSession(sessionId) {
+            if (!sessionId) return;
+            try {
+                const response = await fetch(`/api/chat/${sessionId}/messages`);
+                if (!response.ok) throw new Error('Failed to fetch messages');
+                
+                // ### START: THAY ĐỔI (response này giờ có `msg.id`) ###
+                const messages = await response.json();
+                // ### END: THAY ĐỔI ###
+                
+                renderMessageList(messages); // <-- `createMessageElement` sẽ dùng `msg.id`
+                currentSessionId = sessionId;
+                
+                document.querySelectorAll('#chat-history-list .chat-item').forEach(li => {
+                    li.classList.toggle('active', li.getAttribute('data-session-id') == sessionId);
+                });
+                
+                const activeItem = document.querySelector(`#chat-history-list .chat-item[data-session-id="${sessionId}"]`);
+                chatTitle.textContent = activeItem ? activeItem.querySelector('.font-medium').textContent : translations[currentLang].newChat;
+                
+                deleteChatBtn.disabled = false;
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                
+            } catch (error) {
+                console.error(`Error loading session ${sessionId}:`, error);
+                showToast(`Error loading session: ${error.message}`, true);
+            }
+        }
+        
+        async function createNewChat() {
+            try {
+                sendBtn.disabled = true;
+                messageInput.disabled = true;
+
+                const response = await fetch('/api/chat/new', { method: 'POST' });
+                if (!response.ok) throw new Error('Failed to create new chat');
+                const data = await response.json();
+                window.history.pushState({sessionId: data.session_id}, '', `/chat/${data.session_id}`);
+                
+                await loadChatHistory(); 
+                await loadChatSession(data.session_id); 
+                
+                document.querySelectorAll('#chat-history-list .chat-item').forEach(li => {
+                    li.classList.toggle('active', li.getAttribute('data-session-id') == data.session_id);
+                });
+                chatTitle.textContent = translations[currentLang].newChat;
+
+            } catch (error) {
+                console.error('Error creating new chat:', error);
+                showToast(`Error creating chat: ${error.message}`, true);
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+            }
+        }
+        
+        async function deleteChatSession(sessionId) {
+            const idToDelete = sessionId || currentSessionId;
+            if (!idToDelete || isStreaming) return;
+            
+            if (confirm(translations[currentLang].chatDeleteConfirm)) {
+                try {
+                    const response = await fetch(`/api/chat/${idToDelete}`, { method: 'DELETE' });
+                    if (!response.ok) throw new Error('Failed to delete chat');
+                    
+                    showToast('Chat deleted', false);
+                    await loadChatHistory();
+                    
+                    if (idToDelete === currentSessionId) {
+                        await createNewChat();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error deleting chat:', error);
+                    showToast(`Error deleting chat: ${error.message}`, true);
+                }
+            }
+        }
+
+        // --- STT Logic (FIX 1) ---
+        
+        // ### START: FIX 1 (STT Transcript) ###
+        
+        function startRecording() {
+            // Reset transcript mỗi khi bắt đầu ghi âm mới
+            sttTranscript = ''; 
+            sttTranscriptDisplay.textContent = ''; 
+            startSTT();
+        }
+
+        // THAY THẾ TOÀN BỘ HÀM initSTT() BẰNG HÀM NÀY
+        function initSTT() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.log("Trình duyệt không hỗ trợ SpeechRecognition");
+                showToast(translations[currentLang].sttError, true);
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onstart = () => {
+                // DÙNG HELPER MỚI
+                sttListeningIndicator.classList.add('active'); // Vẫn giữ indicator này
+                setVoiceStatus('voiceStatusRecording');
+            };
+
+            recognition.onresult = (event) => {
+                let interim_transcript = '';
+                let hasFinalPart = false; 
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcriptPart = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        sttTranscript += transcriptPart + ' '; 
+                        hasFinalPart = true;
+                    } else {
+                        interim_transcript += transcriptPart;
+                    }
+                }
+                
+                sttTranscriptDisplay.textContent = sttTranscript + interim_transcript; 
+
+                if (sttAutoStop && hasFinalPart) { 
+                    clearTimeout(sttSilenceTimeout);
+                    sttSilenceTimeout = setTimeout(() => {
+                        console.log("Silence detected, stopping STT.");
+                        if(recognition) recognition.stop();
+                    }, 1000); 
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('STT Error: ', event.error);
+                showToast(translations[currentLang].sttError, true);
+                stopSTT(); // Sẽ kích hoạt 'onend'
+            };
+
+            recognition.onend = () => {
+                sttListeningIndicator.classList.remove('active');
+                clearTimeout(sttSilenceTimeout); 
+
+                const finalTranscriptToSend = sttTranscript.trim();
+                
+                if (finalTranscriptToSend) {
+                    // DÙNG HELPER MỚI: Chuyển sang "Đang xử lý..."
+                    setVoiceStatus('voiceStatusProcessing', true); 
+                    
+                    messageInput.value = finalTranscriptToSend;
+                    handleSendMessage(); // Gửi tin nhắn
+                } else {
+                    // DÙNG HELPER MỚI: Không có text, quay về sẵn sàng
+                    setVoiceStatus('voiceStatusReady');
+                }
+                
+                sttTranscript = '';
+                // sttTranscriptDisplay.textContent = ''; // Tạm thời giữ lại text
+            };
+
+            sttLangSelect.addEventListener('change', (e) => {
+                sttLang = e.target.value;
+                if (sttLang !== 'auto') {
+                    recognition.lang = sttLang;
+                }
+            });
+
+            sttAutoStopToggle.addEventListener('change', (e) => {
+                sttAutoStop = e.target.checked;
+            });
+        }
+        // ### END: FIX 1 (STT Transcript) ###
+
+
+        function startSTT() {
+            if (!recognition) return;
+            sttLang = sttLangSelect.value;
+            if (sttLang !== 'auto') recognition.lang = sttLang;
+            recognition.start();
+        }
+
+        function stopSTT() {
+            if (recognition) recognition.stop();
+        }
+
+        // --- Logic Gửi Tin Nhắn (Chính) ---
+
+        // ### START: THAY ĐỔI (Tách logic stream) ###
+        /**
+         * Hàm xử lý chung cho streaming response
+         * @param {Promise<Response>} fetchPromise - Promise của lệnh fetch
+         */
+        async function processStream(fetchPromise) {
+            isStreaming = true;
+            
+            // ### START: FIX 2 (Dùng helper) ###
+            // sendBtn.disabled = true;
+            // messageInput.disabled = true;
+            disableChatInputs(true);
+            // ### END: FIX 2 (Dùng helper) ###
+            
+            // Xóa loading indicator (nếu có) trước khi thêm cái mới
+            document.getElementById('loading-indicator')?.remove();
+            chatMessages.appendChild(createLoadingMessage());
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const response = await fetchPromise;
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} ${errorText}`);
+                }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const sseLines = decoder.decode(value, { stream: true }).split('\n\n');
+                    for (const line of sseLines) {
+                        if (line.startsWith('data:')) {
+                            const dataStr = line.substring(5).trim();
+                            if (dataStr === '[DONE]') { break; }
+                            try {
+                                const chunk = JSON.parse(dataStr);
+                                if (chunk.error) { throw new Error(chunk.error.message || JSON.stringify(chunk.error)); }
+                                const delta = chunk?.choices?.[0]?.delta?.content;
+                                if (delta) { createOrUpdateStreamingMessage(delta); }
+                            } catch (e) { 
+                                console.warn('Failed to parse stream chunk:', dataStr, e); 
+                                // Không throw lỗi ở đây để stream có thể tiếp tục
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Chat stream error:', error);
+                createOrUpdateStreamingMessage(`\n\n**Error:** ${error.message}`); 
+            } finally {
+                finalizeStreamingMessage();
+            }
+        }
+
+        async function handleSendMessage() {
+            const prompt = messageInput.value.trim();
+            if ((!prompt && !selectedImageFile) || isStreaming || !currentSessionId) return; 
+
+            // (Không thay đổi logic setup)
+            isStreaming = true;
+            // ### START: FIX 2 (Dùng helper) ###
+            // sendBtn.disabled = true;
+            // messageInput.disabled = true;
+            disableChatInputs(true);
+            // ### END: FIX 2 (Dùng helper) ###
+            emptyChatPlaceholder.classList.add('hidden'); 
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('prompt', prompt);
+            formData.append('model', modelSelect.value);
+            formData.append('use_rag', useRAG);
+            if (selectedImageFile) { formData.append('image', selectedImageFile, selectedImageFile.name); }
+            if (isEmotionCamActive) {
+                try {
+                    const blob = await captureEmotionSnapshot();
+                    if (blob) { formData.append('emotion_snapshot', blob, 'emotion.jpg'); }
+                } catch (error) { console.warn('Could not capture emotion snapshot:', error); }
+            }
+            formData.append('emotion_history_json', JSON.stringify(voiceEmotionHistory));
+            voiceEmotionHistory = []; 
+
+            const userMsg = {
+                role: 'user',
+                content: prompt,
+                image: selectedImageFile ? URL.createObjectURL(selectedImageFile) : null,
+                id: `${Date.now()}` // Tạm thời, vì message này chưa có ID từ DB
+            };
+            chatMessages.appendChild(createMessageElement(userMsg));
+            
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            clearPreview();
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Gọi logic stream đã tách
+            const fetchPromise = fetch('/api/chat/send', {
+                method: 'POST',
+                body: formData
+            });
+            
+            await processStream(fetchPromise);
+            
+            // Tải lại history để cập nhật tên chat
+            await loadChatHistory();
+            
+            document.querySelectorAll('#chat-history-list .chat-item').forEach(li => {
+                li.classList.toggle('active', li.getAttribute('data-session-id') == currentSessionId);
+            });
+
+            const activeItem = document.querySelector(`#chat-history-list .chat-item[data-session-id="${currentSessionId}"]`);
+            if (activeItem) {
+                chatTitle.textContent = activeItem.querySelector('.font-medium').textContent;
+            }
+        }
+        
+        // ### START: FIX 2 (Thêm hàm switch model) ###
+        /**
+         * Hàm mới: Xử lý khi đổi model
+         */
+        async function handleModelSwitch() {
+            const newModelName = modelSelect.value;
+            if (!newModelName || newModelName === 'default') return;
+
+            console.log(`Switching to model: ${newModelName}...`);
+            disableChatInputs(true, "Switching model..."); // Vô hiệu hóa UI
+
+            try {
+                const response = await fetch('/api/models/llama/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: newModelName })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok || result.status !== 'success') {
+                    throw new Error(result.detail || 'Failed to switch model');
+                }
+                
+                console.log(`Successfully switched to ${result.loaded_model_name}`);
+                showToast(`Model switched to ${result.loaded_model_name}`, false);
+                modelSelect.value = result.loaded_model_name; 
+
+            } catch (error) {
+                console.error('Model switch error:', error);
+                showToast(`Error switching model: ${error.message}`, true);
+                // Tải lại danh sách model để lấy state hiện tại
+                await loadLlamaModels(); 
+            } finally {
+                disableChatInputs(false); // Kích hoạt lại UI
+            }
+        }
+        // ### END: FIX 2 (Thêm hàm switch model) ###
+
+        /**
+         * Hàm mới để xử lý Regenerate
+         */
+        async function handleRegenerate(messageId, newContent) {
+            if (isStreaming || !currentSessionId) return;
+
+            // 1. Tìm tin nhắn cần sửa
+            const messageDiv = chatMessages.querySelector(`.message[data-message-id="${messageId}"]`);
+            if (!messageDiv) {
+                console.error("Can't find message to regenerate from:", messageId);
+                return;
+            }
+
+            // 2. Xóa tất cả các tin nhắn SAU tin nhắn này
+            let nextMessage = messageDiv.nextElementSibling;
+            while (nextMessage && (nextMessage.classList.contains('message') || nextMessage.id === 'loading-indicator' || nextMessage.id === 'empty-chat-placeholder')) {
+                const temp = nextMessage.nextElementSibling;
+                if(nextMessage.id !== 'empty-chat-placeholder') { // Không xóa placeholder
+                    nextMessage.remove();
+                }
+                nextMessage = temp;
+            }
+            
+            // 3. Cập nhật tin nhắn người dùng tại chỗ
+            const time = formatSimpleTime(new Date()); // Cập nhật thời gian
+            const textHtml = `<p>${newContent.replace(/\n/g, '<br>')}</p>`;
+            const imageHtml = ''; // Giả sử không thể sửa ảnh
+            
+            messageDiv.innerHTML = `
+                <div class="relative max-w-2xl group">
+                    <div class="bg-blue-600 text-white p-4 rounded-2xl rounded-br-md">
+                        ${textHtml}${imageHtml}
+                        <span class="text-xs opacity-75 mt-2 block text-right">${time}</span>
+                    </div>
+                    <button class="edit-message-btn absolute top-1/2 -left-8 -translate-y-1/2 p-1 text-gray-500 hover:text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit and Regenerate">
+                        <i class="bi bi-pencil-square"></i>
+                    </button>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // 4. Chuẩn bị FormData cho endpoint mới
+            const formData = new FormData();
+            formData.append('message_id', messageId);
+            formData.append('new_content', newContent);
+            formData.append('use_rag', useRAG);
+
+            // 5. Gọi logic stream
+            const fetchPromise = fetch('/api/chat/regenerate', {
+                method: 'POST',
+                body: formData
+            });
+
+            await processStream(fetchPromise);
+            
+            // 6. Tải lại history
+            await loadChatHistory();
+            
+            document.querySelectorAll('#chat-history-list .chat-item').forEach(li => {
+                li.classList.toggle('active', li.getAttribute('data-session-id') == currentSessionId);
+            });
+            const activeItem = document.querySelector(`#chat-history-list .chat-item[data-session-id="${currentSessionId}"]`);
+            if (activeItem) {
+                chatTitle.textContent = activeItem.querySelector('.font-medium').textContent;
+            }
+        }
+        // ### END: THAY ĐỔI (Tách logic stream và thêm Regenerate) ###
+
+        // ... (Logic 'Con Mắt' - Emotion Snapshot không đổi) ...
+        function captureEmotionSnapshot() {
+            return new Promise((resolve, reject) => {
+                if (!isEmotionCamActive || !emotionVideo.srcObject) { return reject('Emotion cam not active'); }
+                emotionCanvas.width = emotionVideo.videoWidth;
+                emotionCanvas.height = emotionVideo.videoHeight;
+                emotionCanvas.getContext('2d').drawImage(emotionVideo, 0, 0, emotionCanvas.width, emotionCanvas.height);
+                emotionCanvas.toBlob(resolve, 'image/jpeg');
+            });
+        }
+        async function startEmotionCam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                emotionVideo.srcObject = stream;
+                emotionVideo.style.display = 'block';
+                isEmotionCamActive = true;
+                cameraToggle.classList.add('text-green-500', 'dark:text-green-400');
+            } catch (err) {
+                console.error('Camera permission denied:', err);
+                showToast(translations[currentLang].cameraError, true);
+                stopEmotionCam();
+            }
+        }
+        function stopEmotionCam() {
+            if (emotionVideo.srcObject) {
+                emotionVideo.srcObject.getTracks().forEach(track => track.stop());
+                emotionVideo.srcObject = null;
+            }
+            emotionVideo.style.display = 'none';
+            isEmotionCamActive = false;
+            cameraToggle.classList.remove('text-green-500', 'dark:text-green-400');
+        }
+        cameraToggle.addEventListener('click', () => {
+            if (isEmotionCamActive) {
+                stopEmotionCam();
+            } else {
+                if (confirm(translations[currentLang].emotionSnapshotText)) {
+                    startEmotionCam();
+                }
+            }
+        });
+        
+        // --- Voice Chat Logic (Updated for STT) ---
+
+        // ### START: FIX 3 (Frontend JS) ###
+        // Thay thế hàm playTTS
+        async function playTTS(text) {
+            // Dừng âm thanh đang phát (nếu có)
+            if (currentTTSAudio) {
+                currentTTSAudio.pause();
+                currentTTSAudio.onended = null; // Hủy các listener cũ
+                currentTTSAudio.onerror = null;
+                currentTTSAudio = null;
+            }
+
+            try {
+                currentTTSAudio = new Audio();
+                
+                // Gán thẳng URL API vào src. Trình duyệt sẽ tự stream
+                currentTTSAudio.src = `/api/tts?text=${encodeURIComponent(text)}`;
+                currentTTSAudio.preload = 'auto'; // Cho phép trình duyệt bắt đầu tải
+                
+                currentTTSAudio.play();
+                
+                // Trả về một promise để biết khi nào phát xong
+                return new Promise((resolve, reject) => {
+                    currentTTSAudio.onended = () => {
+                        resolve();
+                        currentTTSAudio = null; // Dọn dẹp
+                    };
+                    currentTTSAudio.onerror = (e) => {
+                        console.error('TTS Audio Error:', e);
+                        reject(e);
+                        currentTTSAudio = null; // Dọn dẹp
+                    };
+                });
+            } catch (err) {
+                console.error('TTS Setup Error:', err);
+                showToast(translations[currentLang].ttsError, true);
+                if (currentTTSAudio) currentTTSAudio = null;
+                throw err;
+            }
+        }
+        // ### END: FIX 3 (Frontend JS) ###
+
+        // ### START: CẬP NHẬT VOICE CHAT (Dùng setVoiceStatus) ###
+        async function startVoiceChat() {
+            voicePanel.classList.remove('hidden');
+            voiceEmotionHistory = [];
+            voiceStatus.textContent = translations[currentLang].cameraLoading;
+            try {
+                voiceStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                voiceVideo.srcObject = voiceStream;
+                voiceVideo.style.display = 'block';
+                voiceVideoPlaceholder.style.display = 'none';
+                
+                // DÙNG HELPER MỚI
+                setVoiceStatus('voiceStatusReady'); 
+                
+                initSTT(); // Init STT here
+            } catch (err) {
+                console.error('Media permission denied:', err);
+                showToast(translations[currentLang].cameraError, true);
+                stopVoiceChat();
+            }
+        }
+        
+        function stopVoiceChat() {
+            stopSTT();
+            if (voiceStream) { voiceStream.getTracks().forEach(track => track.stop()); voiceStream = null; }
+            if (emotionInterval) { clearInterval(emotionInterval); emotionInterval = null; }
+            if(currentTTSAudio) { currentTTSAudio.pause(); currentTTSAudio = null; }
+            
+            // THÊM DÒNG NÀY: Dọn dẹp animation "..."
+            if (voiceStatusInterval) { 
+                clearInterval(voiceStatusInterval);
+                voiceStatusInterval = null;
+            }
+
+            voiceVideo.srcObject = null;
+            voiceVideo.style.display = 'none';
+            voiceVideoPlaceholder.style.display = 'block';
+            isRecording = false;
+            voicePanel.classList.add('hidden');
+            sttTranscriptDisplay.textContent = '';
+        }
+        // ### END: CẬP NHẬT VOICE CHAT ###
+
+        // Đã được thay thế bằng FIX 1
+        // function startRecording() {
+        //     startSTT();
+        // }
+
+        voiceRecordBtn.addEventListener('click', () => { 
+            if (recognition && recognition.state === 'running') {
+                stopSTT();
+            } else {
+                startRecording();
+            }
+        });
+        micBtn.addEventListener('click', startVoiceChat);
+        closeVoiceBtn.addEventListener('click', stopVoiceChat);
+
+        // --- Khởi Chạy Trang ---
+        document.addEventListener('DOMContentLoaded', () => {
+            translateUI(currentLang);
+            hljs.configure({ ignoreUnescapedHTML: true });
+            
+            // Logic RAG (không đổi)
+            useRAG = localStorage.getItem('use-docs') === 'true';
+            if (useRAG) { docSlider.classList.add('translate-x-5'); }
+            docToggle.addEventListener('click', () => {
+                docSlider.classList.toggle('translate-x-5');
+                useRAG = docSlider.classList.contains('translate-x-5');
+                localStorage.setItem('use-docs', useRAG);
+            });
+
+            // Logic Sidebar (không đổi)
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('sidebar-collapsed');
+                const icon = sidebarToggle.querySelector('i');
+                if (sidebar.classList.contains('sidebar-collapsed')) {
+                    icon.className = 'bi bi-layout-sidebar-inset-reverse';
+                } else {
+                    icon.className = 'bi bi-layout-sidebar-inset';
+                }
+            });
+
+            // Logic Suggestion Card (không đổi)
+            document.querySelectorAll('.suggestion-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const prompt = card.getAttribute('data-prompt');
+                    messageInput.value = prompt;
+                    handleSendMessage();
+                });
+            });
+
+            // ### START: THAY ĐỔI (Thêm listener cho nút mới) ###
+            settingsBtn.addEventListener('click', () => { window.location.href = '/settings'; });
+            manageDocsBtn.addEventListener('click', () => { window.location.href = '/rag'; });
+            memoryBtn.addEventListener('click', () => { window.location.href = '/memory'; }); // <-- THÊM MỚI
+            langToggle.addEventListener('click', () => { translateUI(currentLang === 'en' ? 'vi' : 'en'); });
+            sendBtn.addEventListener('click', handleSendMessage);
+            messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } });
+            messageInput.addEventListener('input', () => { messageInput.style.height = 'auto'; messageInput.style.height = Math.min(messageInput.scrollHeight, 128) + 'px'; });
+            imageUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    selectedImageFile = file;
+                    previewImg.src = URL.createObjectURL(file);
+                    previewFilename.textContent = file.name;
+                    imagePreviewContainer.classList.remove('hidden');
+                } else { clearPreview(); }
+            });
+            removePreviewBtn.addEventListener('click', clearPreview);
+            newChatBtn.addEventListener('click', createNewChat);
+            deleteChatBtn.addEventListener('click', () => deleteChatSession(currentSessionId)); 
+            
+            // Thêm Event Delegation cho nút Edit
+            chatMessages.addEventListener('click', (e) => {
+                const editBtn = e.target.closest('.edit-message-btn');
+                if (editBtn) {
+                    if (isStreaming) {
+                        showToast("Please wait for the AI to finish responding before editing.", true);
+                        return;
+                    }
+                    const messageDiv = e.target.closest('.message');
+                    if (messageDiv) {
+                        showEditUI(messageDiv);
+                    }
+                }
+            });
+
+            // ### START: FIX 2 (Thêm listener) ###
+            modelSelect.addEventListener('change', handleModelSwitch);
+            // ### END: FIX 2 (Thêm listener) ###
+
+            // ### END: THAY ĐỔI ###
+            
+            loadLlamaModels();
+            loadChatHistory().then(() => {
+                const pathParts = window.location.pathname.split('/');
+                const idFromUrl = pathParts.length === 3 && pathParts[1] === 'chat' ? parseInt(pathParts[2]) : null;
+                if (idFromUrl) {
+                    const exists = !!document.querySelector(`#chat-history-list .chat-item[data-session-id="${idFromUrl}"]`);
+                    if (exists) { loadChatSession(idFromUrl); } else { createNewChat(); }
+                } else { createNewChat(); }
+            });
+        });
+        function clearPreview() {
+            selectedImageFile = null;
+            imageUpload.value = '';
+            imagePreviewContainer.classList.add('hidden');
+            previewImg.src = '';
+            previewFilename.textContent = '';
+        }
+    </script>
+</body>
+</html>

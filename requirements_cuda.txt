@@ -1,0 +1,34 @@
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124
+tensorflow[and-cuda]
+llama-cpp-python --prefer-binary
+opencv-python-headless 
+fastapi
+uvicorn[standard]
+opencv-python-headless
+deepface
+toml
+torch 
+torchvision 
+pillow 
+transformers 
+accelerate 
+safetensors
+bitsandbytes
+jinja2
+numpy<2
+tf-keras
+faster-whisper
+piper-tts
+psutil
+pynvml
+langchain
+faiss-cpu 
+sentence-transformers
+pymupdf 
+unstructured
+langchain-community
+langchain-text-splitters
+python-multipart
+langdetect
+sqlalchemy
+backup

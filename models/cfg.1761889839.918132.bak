@@ -1,0 +1,21 @@
+{
+  "models": [
+    {
+      "name": "Vitral-Chat-7B",
+      "path": "models/vitral-7b-chat.Q4_K_M.gguf",
+      "format": "mistral-instruct",
+      "description": "Model fine-tuned cho hội thoại Tiếng Việt Với 7 tỷ tham số.",
+      "max_context": 16384,
+      "temperature": 0.7,
+      "top_p": 0.9
+    }
+  ],
+  "valid_formats": [
+    "llama-2", "llama-3", "alpaca", "qwen", "vicuna", "oasst_llama",
+    "baichuan-2", "baichuan", "openbuddy", "redpajama-incite", "snoozy",
+    "phind", "intel", "open-orca", "mistrallite", "zephyr", "pygmalion",
+    "chatml", "mistral-instruct", "chatglm3", "openchat", "saiga",
+    "gemma", "functionary", "functionary-v2", "functionary-v1",
+    "chatml-function-calling"
+  ]
+}

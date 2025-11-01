@@ -1,0 +1,10 @@
+{
+  "llama_server": [
+    "python",
+    "llama_server.py"
+  ],
+  "web_server": [
+    "python",
+    "web/main.py"
+  ]
+}

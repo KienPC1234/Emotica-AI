@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en" class="light"> 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/icon.png" type="image/png">
+    <title>Manage RAG - Emotica AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .dark .bg-gray-50 { @apply bg-gray-900; }
+        .dark .bg-white { @apply bg-gray-800; }
+        .dark .text-gray-900 { @apply text-gray-100; }
+        .dark .text-gray-500 { @apply text-gray-400; }
+        .dark .border-gray-200 { @apply border-gray-700; }
+        .dark .bg-gray-100 { @apply bg-gray-700; }
+        .section { @apply animate-slide-up; }
+        .upload-area { transition: all 0.3s ease; }
+        .upload-area:hover { @apply bg-gray-50 dark:bg-gray-700; }
+        .upload-area.dragover { @apply border-blue-500 bg-blue-50 dark:bg-blue-900/20; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 antialiased min-h-screen py-8">
+    <div class="max-w-6xl mx-auto px-4">
+        <div class="mb-8 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+                    E
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-i18n="title">Manage RAG Documents</h1>
+            </div>
+            <button id="back-btn" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200" data-i18n="back">
+                Back to Chat
+            </button>
+        </div>
+        <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2"></div>
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8 section">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4" data-i18n="uploadTitle">Upload New Documents</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4" data-i18n="uploadSubtitle">Supports PDF, TXT, MD. Documents will be indexed into the Vector DB.</p>
+            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center upload-area" id="upload-area">
+                <input type="file" id="file-upload" accept=".pdf,.txt,.md" multiple class="hidden">
+                <label for="file-upload" class="cursor-pointer">
+                    <svg class="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="text-gray-600 dark:text-gray-400 mb-2" data-i18n="dragDrop">Drag & drop files or click to select</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500" data-i18n="supportedFiles">PDF, TXT, MD only</p>
+                </label>
+            </div>
+            <div id="upload-status" class="mt-4 space-y-2"></div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8 section">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6" data-i18n="docListTitle">Document List</h2>
+            <div id="documents-list" class="space-y-4">
+                </div>
+            <button id="refresh-btn" class="mt-6 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200" data-i18n="refresh">
+                Refresh List
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- I18N (Giữ nguyên) ---
+        const translations = {
+            en: {
+                title: "Manage RAG Documents", back: "Back to Chat", uploadTitle: "Upload New Documents",
+                uploadSubtitle: "Supports PDF, TXT, MD. Documents will be indexed into the Vector DB.",
+                dragDrop: "Drag & drop files or click to select", supportedFiles: "PDF, TXT, MD only",
+                processUpload: "Process & Add to Vector DB", docListTitle: "Document List", refresh: "Refresh List",
+                delete: "Delete", deleteConfirm: "Are you sure you want to delete this document? This will remove it from the Vector DB.",
+                uploading: "Uploading", processing: "Processing", success: "Success", error: "Error",
+                uploadSuccess: "File uploaded and indexed.", uploadError: "Upload failed.",
+                deleteSuccess: "Document deleted.", deleteError: "Failed to delete document.",
+                fetching: "Fetching documents..."
+            },
+            vi: {
+                title: "Quản Lý Tài Liệu RAG", back: "Quay lại Chat", uploadTitle: "Tải Lên Tài Liệu Mới",
+                uploadSubtitle: "Hỗ trợ PDF, TXT, MD. Tài liệu sẽ được index vào Vector DB.",
+                dragDrop: "Kéo thả file hoặc nhấn để chọn", supportedFiles: "Chỉ hỗ trợ PDF, TXT, MD",
+                processUpload: "Xử Lý & Thêm vào Vector DB", docListTitle: "Danh Sách Tài Liệu", refresh: "Làm Mới Danh Sách",
+                delete: "Xóa", deleteConfirm: "Bạn có chắc muốn xóa tài liệu này? Hành động này sẽ xóa nó khỏi Vector DB.",
+                uploading: "Đang tải lên", processing: "Đang xử lý", success: "Thành công", error: "Lỗi",
+                uploadSuccess: "File đã được tải lên và index.", uploadError: "Tải lên thất bại.",
+                deleteSuccess: "Đã xóa tài liệu.", deleteError: "Xóa tài liệu thất bại.",
+                fetching: "Đang tải danh sách..."
+            }
+        };
+        let currentLang = localStorage.getItem('emotica-lang') || 'en';
+        function translateUI(lang) {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.textContent = translations[lang][key] || el.textContent;
+            });
+        }
+        
+        // --- DOM Elements (Giữ nguyên) ---
+        const uploadArea = document.getElementById('upload-area');
+        const fileUpload = document.getElementById('file-upload');
+        const uploadStatus = document.getElementById('upload-status');
+        const docList = document.getElementById('documents-list');
+        const backBtn = document.getElementById('back-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const toastContainer = document.getElementById('toast-container');
+        let filesToUpload = [];
+        
+        // --- Toast (Giữ nguyên) ---
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-lg shadow-lg text-white ${isError ? 'bg-red-500' : 'bg-green-500'} animate-fade-in`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        // --- SỬA LỖI (Feature 5): Hàm Render ---
+        async function renderDocuments() {
+            docList.innerHTML = `<p class="text-gray-500">${translations[currentLang].fetching}</p>`;
+            try {
+                const response = await fetch('/api/rag/list');
+                if (!response.ok) throw new Error('Failed to fetch list');
+                const data = await response.json();
+                
+                docList.innerHTML = ''; // Clear
+                
+                // API trả về: {"documents": ["test.pdf", "file2.txt"]}
+                if (data.documents && data.documents.length > 0) {
+                    
+                    data.documents.forEach(docName => { // <-- Thay đổi: lặp qua mảng string
+                        const docCard = document.createElement('div');
+                        docCard.className = 'flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600';
+                        
+                        // const docName = doc.filename || 'Unknown File'; // Lỗi ở đây
+                        const docChunks = 'N/A'; // Không có thông tin này từ API
+                        
+                        docCard.innerHTML = `
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                    <span class="text-blue-600 dark:text-blue-400 font-medium">${docName.split('.').pop().toUpperCase() || 'FILE'}</span>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">${docName}</h4>
+                                    </div>
+                            </div>
+                            <button class="text-red-500 hover:text-red-700 text-sm font-medium" data-filename="${docName}">${translations[currentLang].delete}</button>
+                        `;
+                        
+                        docCard.querySelector('button').addEventListener('click', (e) => {
+                            const filename = e.target.getAttribute('data-filename');
+                            deleteDocument(filename);
+                        });
+                        
+                        docList.appendChild(docCard);
+                    });
+                } else {
+                    docList.innerHTML = `<p class="text-gray-500">No documents found in the RAG database.</p>`;
+                }
+            } catch (error) {
+                console.error('Error rendering documents:', error);
+                docList.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+            }
+        }
+
+        // --- Hàm API (Giữ nguyên) ---
+        async function deleteDocument(filename) {
+            if (confirm(`${translations[currentLang].deleteConfirm}\n(${filename})`)) {
+                try {
+                    const response = await fetch(`/api/rag/delete?filename=${encodeURIComponent(filename)}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) throw new Error('Delete request failed');
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        showToast(translations[currentLang].deleteSuccess, false);
+                        await renderDocuments();
+                    } else {
+                        throw new Error(data.detail || translations[currentLang].deleteError);
+                    }
+                } catch (error) {
+                    console.error('Error deleting document:', error);
+                    showToast(error.message, true);
+                }
+            }
+        }
+        async function handleFiles(files) {
+            uploadStatus.innerHTML = '';
+            filesToUpload = Array.from(files);
+            if (filesToUpload.length === 0) return;
+            for (const file of filesToUpload) {
+                const fileId = `file-${Date.now()}-${Math.random()}`;
+                const statusDiv = document.createElement('div');
+                statusDiv.id = fileId;
+                statusDiv.className = 'p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex justify-between items-center';
+                statusDiv.innerHTML = `<span class_name="text-sm">${file.name}</span><span class="text-sm text-gray-500" data-status="pending">Pending...</span>`;
+                uploadStatus.appendChild(statusDiv);
+                await uploadFile(file, fileId);
+            }
+            await renderDocuments();
+        }
+        async function uploadFile(file, fileId) {
+            const statusEl = document.querySelector(`#${fileId} [data-status]`);
+            try {
+                statusEl.textContent = translations[currentLang].uploading;
+                statusEl.className = 'text-sm text-blue-500';
+                const formData = new FormData();
+                formData.append('file', file);
+                const response = await fetch('/api/rag/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Upload failed');
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    statusEl.textContent = translations[currentLang].success;
+                    statusEl.className = 'text-sm text-green-500';
+                } else {
+                    throw new Error(data.message || translations[currentLang].uploadError);
+                }
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                statusEl.textContent = `${translations[currentLang].error}: ${error.message}`;
+                statusEl.className = 'text-sm text-red-500';
+            }
+        }
+
+        // --- Gắn Sự Kiện (Giữ nguyên) ---
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+            document.body.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+        });
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+        });
+        uploadArea.addEventListener('drop', e => { handleFiles(e.dataTransfer.files); }, false);
+        fileUpload.addEventListener('change', (e) => { handleFiles(e.target.files); });
+        backBtn.addEventListener('click', () => { window.location.href = '/chat'; });
+        refreshBtn.addEventListener('click', renderDocuments);
+        document.addEventListener('DOMContentLoaded', () => {
+            translateUI(currentLang);
+            renderDocuments();
+        });
+    </script>
+</body>
+</html>
