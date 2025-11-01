@@ -26,8 +26,8 @@ Emotica AI is a compassionate and therapeutic virtual assistant designed to prov
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository_url>
-cd KienAi
+git clone https://github.com/KienPC1234/Emotica-AI.git
+cd Emotica-AI
 ```
 
 ### 2. Create a Virtual Environment

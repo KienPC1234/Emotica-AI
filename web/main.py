@@ -127,28 +127,49 @@ if tts_analyzer: log.info("TextToSpeech (piper) đã tải xong.")
 
 http_client = httpx.AsyncClient(timeout=None)
 
-
-
-
-
-USER_MEMORY_INSTRUCTIONS = (
-    "\n--- USER MEMORY INSTRUCTIONS ---\n"
-    "You have the ability to remember important, long-term information about the user (e.g., name, hobbies, goals, major life events they share) to be more understanding and empathetic."
-    "To save a piece of information, YOU MUST PLACE IT IN A SPECIAL TAG <saveUserInfo> AT THE VERY BEGINNING OF YOUR RESPONSE. This tag will be hidden and not shown to the user."
-    "Example: <saveUserInfo>User's name is An, and they like Python programming.</saveUserInfo>Hello An, I'd be happy to talk about Python..."
-    "Only save core facts, not fleeting emotions or casual small talk."
-    "You can also access saved information (if any) in the [USER MEMORIES] section below."
-    "Please use these memories to personalize the conversation and show empathy."
-    "TAG <saveUserInfo> AT THE BEGINNING OF YOUR RESPONSE!"
+UPDATED_USER_MEMORY_INSTRUCTIONS = (
+    "\n<memory_rules>"
+    "\n--- USER MEMORY INSTRUCTIONS ---"
+    "\n[PURPOSE] You have a special tool to remember CORE, LONG-TERM FACTS about the user (e.g., name, hobbies, goals, significant life events they share)."
+    "\n[CONTENT RULES]"
+    "\n1. ONLY SAVE: Core facts (e.g., 'User's name is An', 'User is learning Python', 'They have a cat named Miu')."
+    "\n2. DO NOT SAVE: Fleeting emotions (e.g., 'user is sad right now'), casual small talk (e.g., 'it is raining'), or your own opinions (e.g., 'user asked a good question')."
+    "\n[FORMAT & POSITION RULES]"
+    "\n1. TO SAVE INFO: You MUST use the <saveUserInfo>...</saveUserInfo> tag."
+    "\n2. CRITICAL POSITIONING: The <saveUserInfo> tag MUST ALWAYS be the ABSOLUTE VERY FIRST thing in your response."
+    "\n   There must be NO text, spaces, or newlines before it."
+    "\n[CRITICAL EXAMPLES]"
+    "\n### GOOD EXAMPLE (Correct Format & Position):"
+    "\n<saveUserInfo>User's name is An and they like Python programming.</saveUserInfo>Hello An, I'd be happy to talk about Python..."
+    "\n### BAD EXAMPLE (Incorrect Position):"
+    "\nHello An! <saveUserInfo>User likes Python.</saveUserInfo>I'm happy to talk about Python..."
+    "\n### BAD EXAMPLE (Incorrect Content - Fleeting Emotion):"
+    "\n<saveUserInfo>User is feeling a bit anxious.</saveUserInfo>I understand you're feeling anxious..."
+    "\n--- END OF MEMORY INSTRUCTIONS ---"
+    "\n</memory_rules>"
 )
 
 EMOTICA_SYSTEM_PROMPT = (
-    "You are Emotica AI, a compassionate and therapeutic virtual assistant. "
-    "Your primary goal is to listen, understand, and provide empathetic, supportive, and non-judgmental responses. "
-    "The user may be sharing their feelings, and your role is to be a safe space for them. "
-    "If the user provides their current emotion (e.g., 'User is feeling: sad') or an emotional journey (e.g., 'User's emotional journey: [list, of, emotions]'), "
-    "acknowledge this information with care and tailor your response to their emotional state. Always be kind, patient, and encouraging."
-    f"{USER_MEMORY_INSTRUCTIONS}"
+    "<system_prompt>"
+    "\n<persona>" 
+    "\nYou are Emotica AI, a compassionate and therapeutic virtual assistant."
+    "\nYour primary goal is to listen, understand, and provide empathetic, supportive, and non-judgmental responses."
+    "\nThe user may be sharing their feelings, and your role is to be a safe space for them."
+    "\nAlways be kind, patient, and encouraging."
+    "\n</persona>"
+    "\n<main_task>"
+    "\nYou must tailor your response to the user's emotional state."
+    "\nIf the user provides their current emotion (e.g., 'User is feeling: sad') or an emotional journey (e.g., 'User's emotional journey: [sad, anxious, hopeful]'), "
+    "\nyou must acknowledge this information with care and sensitivity."
+    "\n</main_task>"
+    "\n<memory_usage_rules>"
+    "\n[MEMORY USAGE]"
+    "\nYou will see a [USER MEMORIES] section if saved information exists."
+    "\nYou MUST use this information to personalize the conversation, show that you remember them, and build an empathetic bond."
+    "\nRefer to these memories when they are relevant."
+    "\n</memory_usage_rules>"
+    f"{UPDATED_USER_MEMORY_INSTRUCTIONS}"
+    "\n</system_prompt>"
 )
 
 def get_user_memory_block(db: Session) -> str:
@@ -157,7 +178,7 @@ def get_user_memory_block(db: Session) -> str:
         if not memories:
             return "\n[USER MEMORIES: (None yet)]\n"
         
-        memory_list = [f"- {m.content} (Saved: {m.created_at.strftime('%Y-%m-%d')})" for m in memories]
+        memory_list = [f"- {m.content}" for m in memories]
         return "\n[USER MEMORIES:]\n" + "\n".join(memory_list) + "\n---"
     except Exception as e:
         log.error(f"Lỗi khi truy vấn UserMemory: {e}")
@@ -210,21 +231,35 @@ def image_to_base64_data_uri(file_path: Path) -> Optional[str]:
         return None
 
 async def check_and_rename_chat(session_id: int, user_prompt: str, ai_response: str, db: Session):
+    """
+    Tự động tạo và đổi tên cho một ChatSession nếu nó vẫn là "New Chat".
+    ĐÃ CẢI TIẾN: Hướng dẫn prompt mạnh mẽ và thêm bước dọn dẹp (post-processing)
+    để ép buộc loại bỏ các tiền tố không mong muốn.
+    """
     try:
         session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+        
         if not session or session.title != "New Chat":
             return
 
         log.info(f"Đang tạo tự động tiêu đề cho Session ID: {session_id}")
+
         title_prompt = (
-            f"Based on the following conversation start, create a very short, concise title (6 words or less, in English or Vietnamese depending on the context). "
-            f"Do not add quotes or any prefix like 'Title:'. Just return the title itself.\n\n"
+            f"Here is the start of a conversation:\n\n"
             f"User: \"{user_prompt}\"\n"
             f"Assistant: \"{ai_response}\"\n\n"
-            f"Title:"
+            f"---\n"
+            f"Your task is to create a very short, concise title for this conversation (6 words or less).\n\n"
+            f"IMPORTANT INSTRUCTIONS:\n"
+            f"1. You MUST respond with ONLY the title text.\n"
+            f"2. ABSOLUTELY NO prefixes like 'Title:', 'Tiêu đề:', 'Here is the title:'.\n"
+            f"3. NO quotes around the title.\n\n"
+            f"Just return the plain text of the title itself and nothing else."
         )
-        messages = [{"role": "user", "content": title_prompt}]
+
         
+        messages = [{"role": "user", "content": title_prompt}]
+
         response = await http_client.post(
             f"{LLAMA_SERVER_URL}/v1/chat/completions",
             json={"messages": messages, "stream": False, "temperature": 0.2, "max_tokens": 20}
@@ -232,12 +267,29 @@ async def check_and_rename_chat(session_id: int, user_prompt: str, ai_response: 
         
         if response.status_code == 200:
             data = response.json()
-            new_title = data['choices'][0]['message']['content'].strip().replace("\"", "")
-            session.title = new_title
+            raw_title = data['choices'][0]['message']['content']
+
+            cleaned_title = raw_title.strip().strip('"\'')
+            
+            prefix_pattern = re.compile(
+                r'^(Title|Tiêu đề|Chủ đề|Here\'s the title|Here is the title)\s*:\s*', 
+                re.IGNORECASE
+            )
+            
+            final_title = prefix_pattern.sub('', cleaned_title)
+            
+            if not final_title:
+                log.warning(f"Tạo title thất bại cho Session {session_id} sau khi clean-up. Dùng title tạm.")
+                final_title = "Untitled Chat" 
+            
+            # --- Cập nhật DB ---
+            session.title = final_title
             db.commit()
-            log.info(f"Session {session_id} đã được đổi tên thành: {new_title}")
+            log.info(f"Session {session_id} đã được đổi tên thành: {final_title} (Raw: '{raw_title}')")
+        
         else:
             log.error(f"Lỗi khi gọi Llama Server để lấy title: {response.text}")
+    
     except Exception as e:
         log.error(f"Lỗi trong tác vụ nền (rename chat): {e}", exc_info=True)
         db.rollback()
