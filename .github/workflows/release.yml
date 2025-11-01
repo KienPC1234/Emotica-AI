@@ -78,7 +78,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           # This creates a draft release. Remove 'draft: true' to publish immediately.
-          draft: true
+          draft: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
           # This will use the tag name as the release name, and the commit body as the release body.
           files: |
             artifacts/release-linux/release-linux.tar.gz
